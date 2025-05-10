@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ChangeEvent} from 'react';
@@ -9,7 +10,7 @@ import * as opentype from 'opentype.js';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; // Keep if used, otherwise remove
 import {
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/form";
 import { SUPPORTED_LANGUAGES } from "@/lib/constants";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, UploadCloud } from "lucide-react";
+import { Loader2, Save } from "lucide-react"; // Changed UploadCloud to Save
 
 export interface ParsedFontDetails {
   name: string;
@@ -37,17 +38,20 @@ export interface ParsedFontDetails {
 }
 
 interface FontUploadFormProps {
-  onFontParsed: (details: ParsedFontDetails) => void;
+  onFontProcessed: (details: ParsedFontDetails | null) => void; // Renamed, can be null to clear
+  onSaveConfiguration: (details: ParsedFontDetails, fontFile: File) => void;
 }
 
 const formSchema = z.object({
-  language: z.string().min(1, "Please select a language."),
+  language: z.string().min(1, "Please select a language to associate with the font."),
+  // File itself is handled outside react-hook-form state, but validated before save
 });
 
 type FontFormValues = z.infer<typeof formSchema>;
 
-export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
+export function FontUploadForm({ onFontProcessed, onSaveConfiguration }: FontUploadFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [currentParsedDetails, setCurrentParsedDetails] = useState<ParsedFontDetails | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
@@ -55,7 +59,7 @@ export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
   const form = useForm<FontFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      language: SUPPORTED_LANGUAGES[0]?.value || "",
+      language: "", // Default to empty, user must select
     },
   });
 
@@ -65,36 +69,44 @@ export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
     // Re-parse if language changes and a file is selected
     if (selectedFile && currentLanguage) {
       parseFont(selectedFile, currentLanguage);
+    } else if (!selectedFile || !currentLanguage) {
+      // Clear preview if file or language is missing
+      setCurrentParsedDetails(null);
+      onFontProcessed(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLanguage]); // Only re-run if currentLanguage changes
+  }, [currentLanguage, selectedFile]); // Re-run if selectedFile or currentLanguage changes
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    setParsingError(null); // Clear previous parsing errors
+    setCurrentParsedDetails(null); // Clear previous details
+    onFontProcessed(null); // Clear preview in parent
+
     if (file) {
       if (file.type !== "font/otf" && !file.name.toLowerCase().endsWith(".otf")) {
         setFileError("Invalid file type. Please upload an OTF (.otf) font file.");
         setSelectedFile(null);
-        onFontParsed({ name: "", language: "", characters: [] }); // Clear preview
         return;
       }
       setSelectedFile(file);
       setFileError(null);
+      // Parsing will be triggered by useEffect if language is already set
       if (form.getValues("language")) {
         await parseFont(file, form.getValues("language"));
-      } else {
-        setParsingError("Please select a language first.");
       }
     } else {
       setSelectedFile(null);
       setFileError(null);
-      onFontParsed({ name: "", language: "", characters: [] }); // Clear preview
     }
   };
 
   const parseFont = async (file: File, language: string) => {
     if (!language) {
+      // This case should ideally be prevented by form validation if language is required for parsing
       setParsingError("Language not selected. Cannot parse font.");
+      onFontProcessed(null);
+      setCurrentParsedDetails(null);
       return;
     }
     setIsParsing(true);
@@ -107,46 +119,58 @@ export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
       const name = font.names.fontFamily?.en || font.names.fullName?.en || font.names.preferredFamily?.en || file.name;
 
       const characters: string[] = [];
-      // Iterate through glyphs that have unicode values
       for (let i = 0; i < font.numGlyphs; i++) {
         const glyph = font.glyphs.get(i);
         if (glyph.unicode !== undefined) {
            characters.push(String.fromCharCode(glyph.unicode));
         } else if (glyph.unicodes && glyph.unicodes.length > 0) {
-           // Handle glyphs with multiple unicode values (e.g., ligatures mapped to sequences)
-           // For simplicity, we take the first one or join them if appropriate for the use case.
-           // Here, we'll just add characters for each unicode point.
            glyph.unicodes.forEach(u => characters.push(String.fromCharCode(u)));
         }
       }
       
-      // Filter out non-printable characters (ASCII < 32, except tab, lf, cr), control chars, and duplicates.
-      // Also filter out the .notdef glyph which usually has unicode 0 or is unassigned.
       const uniquePrintableChars = Array.from(new Set(
         characters.filter(char => {
           const code = char.charCodeAt(0);
-          return code >= 32 || code === 9 || code === 10 || code === 13; // Printable ASCII or tab/lf/cr
+          return code >= 32 || code === 9 || code === 10 || code === 13;
         })
-      )).sort((a, b) => a.charCodeAt(0) - b.charCodeAt(0)); // Sort by char code
+      )).sort((a, b) => a.charCodeAt(0) - b.charCodeAt(0));
 
-      onFontParsed({ name, language, characters: uniquePrintableChars });
+      const parsedDetails = { name, language, characters: uniquePrintableChars };
+      setCurrentParsedDetails(parsedDetails);
+      onFontProcessed(parsedDetails);
 
     } catch (e) {
       console.error("Font parsing error:", e);
-      setParsingError(`Failed to parse font file. Ensure it's a valid OTF file. Error: ${e instanceof Error ? e.message : String(e)}`);
-      onFontParsed({ name: file.name, language, characters: [] }); // Send empty chars on error
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      setParsingError(`Failed to parse font: ${errorMsg}. Ensure it's a valid OTF file.`);
+      onFontProcessed(null);
+      setCurrentParsedDetails(null);
     }
     setIsParsing(false);
   };
   
-  // Form's onSubmit isn't strictly needed if parsing happens on file/language change.
-  // It could be used for a "save font configuration" action in the future.
-  const onSubmit = async (values: FontFormValues) => {
-    if (selectedFile) {
-      await parseFont(selectedFile, values.language);
-    } else {
-      setFileError("Please select a font file.");
+  const onSubmit = (_values: FontFormValues) => { // _values from form, but we use component state
+    if (!selectedFile) {
+      setFileError("Please select a font file to save.");
+      return;
     }
+    if (!currentLanguage) {
+      form.setError("language", { type: "manual", message: "Language is required to save." });
+      return;
+    }
+    if (!currentParsedDetails) {
+      setParsingError("Font data is not available or parsing failed. Cannot save.");
+      return;
+    }
+    
+    // Ensure currentParsedDetails has the latest language from the form
+    const detailsToSave: ParsedFontDetails = {
+        ...currentParsedDetails,
+        language: currentLanguage, // Use the latest language from form
+        name: currentParsedDetails.name || selectedFile.name, // Ensure name is set
+    };
+
+    onSaveConfiguration(detailsToSave, selectedFile);
   };
 
 
@@ -163,7 +187,7 @@ export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
             className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
           />
           {fileError && <FormMessage>{fileError}</FormMessage>}
-          <FormDescription>Upload an OpenType Font file.</FormDescription>
+          <FormDescription>Upload an OpenType Font file. The character set will be previewed below.</FormDescription>
         </FormItem>
 
         <FormField
@@ -172,7 +196,7 @@ export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Assign Language</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value || ""}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select language for the font" />
@@ -187,7 +211,7 @@ export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
                 </SelectContent>
               </Select>
               <FormDescription>
-                This language association will be used for practice sheets.
+                This language association will be stored with the font.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -203,17 +227,17 @@ export function FontUploadForm({ onFontParsed }: FontUploadFormProps) {
 
         {parsingError && (
           <Alert variant="destructive">
-            <AlertTitle>Parsing Error</AlertTitle>
+            <AlertTitle>Font Processing Error</AlertTitle>
             <AlertDescription>{parsingError}</AlertDescription>
           </Alert>
         )}
         
-        {/* Submit button might be for future use, e.g., saving to a backend */}
-        {/* <Button type="submit" disabled={isParsing || !selectedFile} className="w-full">
-          {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-          {isParsing ? "Processing..." : "Process & Preview Font"}
-        </Button> */}
+        <Button type="submit" disabled={isParsing || !selectedFile || !currentLanguage || !currentParsedDetails} className="w-full">
+          {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {isParsing ? "Processing..." : "Save Font Configuration"}
+        </Button>
       </form>
     </Form>
   );
 }
+
