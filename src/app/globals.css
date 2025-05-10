@@ -99,3 +99,97 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  @media print {
+    body {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body * {
+      visibility: hidden;
+      transform: none !important; 
+    }
+    .printable-area, .printable-area * {
+      visibility: visible;
+    }
+    .printable-area {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 10mm !important;
+      box-shadow: none !important;
+      border: none !important;
+      background-color: white !important;
+      color: black !important;
+      font-size: 10pt !important;
+    }
+    .no-print {
+      display: none !important;
+    }
+
+    .printable-area h2 {
+      font-size: 16pt !important;
+      color: black !important;
+      margin-bottom: 0.5em !important; /* Adjusted margin */
+    }
+     .printable-area > p { /* The "Grid: X rows x Y columns" paragraph */
+      font-size: 9pt !important;
+      color: #333 !important;
+      margin-bottom: 1em !important;
+    }
+
+    /* Overrides for ScrollArea related elements within printable-area */
+    .printable-area .border.rounded-md.overflow-hidden, /* Targets ScrollArea root based on its common classes */
+    .printable-area div[data-radix-scroll-area-root] { /* More robust selector for Radix ScrollArea root */
+      height: auto !important;
+      overflow: visible !important;
+      border: none !important;
+    }
+     .printable-area .h-\[60vh\], .printable-area .md\:h-\[70vh\] { /* Remove screen height restrictions */
+        height: auto !important;
+    }
+     .printable-area div[data-radix-scroll-area-viewport] { /* Target viewport by data attribute */
+        height: auto !important;
+        overflow: visible !important;
+     }
+
+    .printable-grid {
+      display: grid !important;
+      background-color: white !important;
+      padding: 0 !important;
+      gap: 1px !important; /* Minimal gap for print */
+    }
+    .printable-grid-cell {
+      border: 1px solid #ccc !important;
+      page-break-inside: avoid !important;
+      background-color: white !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      padding: 2mm !important;
+      min-height: 20mm; /* Ensure minimum cell height for print */
+    }
+    .printable-grid-cell span { /* The character itself */
+      color: black !important; 
+      font-size: 18pt !important; /* Adjusted for print */
+      line-height: 1.2 !important;
+      font-family: var(--font-geist-sans), 'Noto Sans Devanagari', sans-serif !important; /* Ensure font */
+    }
+    .printable-grid-cell .flex-grow { /* The writing line area */
+      border-top: 1px dashed #bbb !important;
+      margin-top: 0.5em !important;
+    }
+
+    /* Hide scrollbars explicitly by targeting their role or common classes */
+    .printable-area [role="scrollbar"],
+    .printable-area .scrollbar-thumb-class, /* Replace with actual class if known */
+    .printable-area .scrollbar-track-class {
+      display: none !important;
+    }
+  }
+}
