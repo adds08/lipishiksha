@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -63,7 +64,7 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, onConfigChange]);
+  }, [form, onConfigChange, formSchema]);
 
 
   return (
