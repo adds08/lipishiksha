@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -22,9 +24,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SUPPORTED_LANGUAGES, DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS } from "@/lib/constants";
-import { Lightbulb } from "lucide-react";
+import { DEFAULT_GRID_ROWS, DEFAULT_GRID_COLS } from "@/lib/constants";
+import { Lightbulb, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+
+// Re-defining AvailableLanguage here or importing from a shared location if it becomes common
+export interface AvailableLanguage {
+  value: string; 
+  label: string;
+}
 
 const labelingFormSchema = z.object({
   language: z.string().min(1, "Please select a language."),
@@ -38,23 +46,32 @@ export type LabelingFormValues = z.infer<typeof labelingFormSchema>;
 interface LabelingFormProps {
   onSubmit: (values: LabelingFormValues) => void;
   isSubmitting: boolean;
+  availableLanguages: AvailableLanguage[];
+  isLoadingLanguages: boolean;
 }
 
-export function LabelingForm({ onSubmit, isSubmitting }: LabelingFormProps) {
+export function LabelingForm({ onSubmit, isSubmitting, availableLanguages, isLoadingLanguages }: LabelingFormProps) {
   const form = useForm<LabelingFormValues>({
     resolver: zodResolver(labelingFormSchema),
     defaultValues: {
-      language: SUPPORTED_LANGUAGES[0].value,
+      language: "", // Will be set by useEffect
       gridDescription: `A ${DEFAULT_GRID_ROWS}x${DEFAULT_GRID_COLS} grid of characters.`,
       rows: DEFAULT_GRID_ROWS,
       cols: DEFAULT_GRID_COLS,
     },
   });
 
+  useEffect(() => {
+    if (!isLoadingLanguages && availableLanguages.length > 0) {
+      // Set default language if not already set or if current is invalid
+      const currentLanguage = form.getValues("language");
+      if (!currentLanguage || !availableLanguages.find(lang => lang.value === currentLanguage)) {
+        form.setValue("language", availableLanguages[0].value);
+      }
+    }
+  }, [availableLanguages, isLoadingLanguages, form]);
+
   const handleFormSubmit = (values: LabelingFormValues) => {
-    // Construct a more detailed gridDescription if needed, or use user's input.
-    // For now, we'll primarily use rows and cols for UI grid generation, 
-    // and user's gridDescription for the AI.
     const refinedValues = {
         ...values,
         gridDescription: values.gridDescription || `A ${values.rows}x${values.cols} grid of characters for language ${values.language}.`
@@ -81,18 +98,36 @@ export function LabelingForm({ onSubmit, isSubmitting }: LabelingFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Language of Characters</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    value={field.value}
+                    disabled={isLoadingLanguages || availableLanguages.length === 0}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select language" />
+                        <SelectValue placeholder={
+                          isLoadingLanguages 
+                            ? "Loading languages..." 
+                            : (availableLanguages.length === 0 ? "No languages available" : "Select language")
+                        } />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {SUPPORTED_LANGUAGES.map((lang) => (
-                        <SelectItem key={lang.value} value={lang.value}>
-                          {lang.label}
+                      {isLoadingLanguages ? (
+                        <div className="flex items-center justify-center p-2">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading...
+                        </div>
+                      ) : availableLanguages.length > 0 ? (
+                        availableLanguages.map((lang) => (
+                          <SelectItem key={lang.value} value={lang.value}>
+                            {lang.label}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-lang" disabled>
+                          No languages configured. Add fonts in Admin.
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -151,9 +186,8 @@ export function LabelingForm({ onSubmit, isSubmitting }: LabelingFormProps) {
                 />
             </div>
 
-
-            <Button type="submit" disabled={isSubmitting} className="w-full">
-              <Lightbulb className="mr-2 h-4 w-4" />
+            <Button type="submit" disabled={isSubmitting || isLoadingLanguages || availableLanguages.length === 0} className="w-full">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lightbulb className="mr-2 h-4 w-4" />}
               {isSubmitting ? "Suggesting Labels..." : "Suggest Labels with AI"}
             </Button>
           </form>

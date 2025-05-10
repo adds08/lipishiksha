@@ -1,10 +1,12 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ImageUploader } from "@/components/image-uploader";
 import { ImageEditor } from "@/components/image-editor";
-import { LabelingForm, type LabelingFormValues } from "@/components/labeling-form";
+import { LabelingForm, type LabelingFormValues, type AvailableLanguage as LabelingAvailableLanguage } from "@/components/labeling-form";
 import { LabelingInterface } from "@/components/labeling-interface";
 import { generateLabels } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -12,10 +14,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Loader2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getFontsForGenerator, type LanguageFontInfo } from "@/lib/font-data-service";
 
 type LabelingStep = "upload" | "params" | "label";
 
-export default function LabelingPage() {
+const queryClient = new QueryClient();
+
+
+function LabelingPageContent() {
   const [step, setStep] = useState<LabelingStep>("upload");
   
   const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
@@ -30,13 +36,37 @@ export default function LabelingPage() {
 
   const { toast } = useToast();
 
+  const { data: availableFontsData, isLoading: isLoadingFonts, error: fontsError } = useQuery<LanguageFontInfo[], Error>({
+    queryKey: ['fontsForGenerator'], // Can reuse the same query key if data is identical
+    queryFn: getFontsForGenerator,
+  });
+
+  const labelingAvailableLanguages: LabelingAvailableLanguage[] = availableFontsData
+    ? availableFontsData.map(f => ({ value: f.id, label: f.label }))
+    : [];
+
+  useEffect(() => {
+    // If labeling params exist and availableFontsData loads, ensure the language in labelingParams is valid.
+    // Or, set a default language if one is not yet set in labelingParams.
+    if (labelingParams && availableFontsData && availableFontsData.length > 0) {
+      const languageExists = availableFontsData.some(f => f.id === labelingParams.language);
+      if (!languageExists) {
+        setLabelingParams(prev => prev ? ({ ...prev, language: availableFontsData[0].id }) : null);
+      }
+    } else if (!labelingParams && availableFontsData && availableFontsData.length > 0 && step === "params") {
+      // If moving to params step and no params yet, initialize with default language
+      // This part might need adjustment based on when labelingParams is typically set
+    }
+  }, [availableFontsData, labelingParams, step]);
+
+
   const handleImageUpload = (dataUri: string, file: File) => {
     setImageDataUri(dataUri);
-    setUploadedImageFile(file); // Keep file if needed for other processing
-    setImageRotation(0); // Reset rotation on new image
+    setUploadedImageFile(file);
+    setImageRotation(0); 
     setStep("params");
-    setAiError(null); // Clear previous errors
-    setSuggestedLabels([]); // Clear previous labels
+    setAiError(null); 
+    setSuggestedLabels([]); 
   };
 
   const handleRotateImage = () => {
@@ -53,11 +83,17 @@ export default function LabelingPage() {
       setIsSubmittingAi(false);
       return;
     }
+    if (!values.language && labelingAvailableLanguages.length > 0) {
+        toast({ title: "Error", description: "Please select a language.", variant: "destructive" });
+        setIsSubmittingAi(false);
+        return;
+    }
+     if (labelingAvailableLanguages.length === 0) {
+        toast({ title: "Error", description: "No languages available. Please add fonts in Admin.", variant: "destructive" });
+        setIsSubmittingAi(false);
+        return;
+    }
 
-    // Apply rotation to image data if any before sending to AI.
-    // This is complex. For now, we send the original image.
-    // True rotation of image data would require canvas manipulation.
-    // The AI will receive the un-rotated image. The displayed rotation is for user convenience.
 
     const aiInput = {
       practiceSheetDataUri: imageDataUri,
@@ -80,7 +116,6 @@ export default function LabelingPage() {
 
   const handleSaveLabels = (finalLabels: string[]) => {
     console.log("Final labels to save:", finalLabels);
-    // Here you would typically send these labels to a backend/database
     toast({ title: "Labels Saved", description: "Your corrected labels have been saved (logged to console)." });
   };
   
@@ -106,8 +141,27 @@ export default function LabelingPage() {
               rotation={imageRotation} 
               onRotate={handleRotateImage} 
             />
-            <div className="sticky top-20"> {/* Sticky for form */}
-              <LabelingForm onSubmit={handleParamsSubmit} isSubmitting={isSubmittingAi} />
+            <div className="sticky top-20">
+              {isLoadingFonts && (
+                <div className="flex items-center justify-center p-4 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Loading language options...</span>
+                </div>
+              )}
+              {fontsError && (
+                 <Alert variant="destructive" className="mb-4">
+                   <AlertTitle>Error Loading Languages</AlertTitle>
+                   <AlertDescription>{fontsError.message}</AlertDescription>
+                 </Alert>
+              )}
+              {!isLoadingFonts && !fontsError && (
+                <LabelingForm 
+                    onSubmit={handleParamsSubmit} 
+                    isSubmitting={isSubmittingAi}
+                    availableLanguages={labelingAvailableLanguages}
+                    isLoadingLanguages={isLoadingFonts} 
+                />
+              )}
               {aiError && (
                  <Alert variant="destructive" className="mt-4">
                    <AlertTitle>AI Error</AlertTitle>
@@ -124,7 +178,7 @@ export default function LabelingPage() {
           </div>
         );
       case "label":
-        if (!labelingParams) return <p>Error: Labeling parameters not set.</p>; // Should not happen
+        if (!labelingParams) return <p>Error: Labeling parameters not set.</p>;
         return (
           <LabelingInterface
             imageDataUri={imageDataUri}
@@ -151,18 +205,20 @@ export default function LabelingPage() {
           </p>
         </header>
         
-        {/* Progress Indicator could go here if desired */}
         <div className="flex justify-center mb-6 space-x-2 sm:space-x-4">
             { (["upload", "params", "label"] as LabelingStep[]).map((s, i) => (
                 <div key={s} className="flex items-center">
                     <button 
                         onClick={() => {
-                            // Allow navigation to previous steps if conditions met
                             if (s === "upload") setStep("upload");
                             if (s === "params" && imageDataUri) setStep("params");
-                            // Don't allow jumping to "label" without params
+                            // Clicking "Label" step button is only allowed if params are set and suggestions ready
+                            if (s === "label" && labelingParams && suggestedLabels.length > 0) setStep("label");
                         }}
-                        disabled={ (s === "params" && !imageDataUri) || (s === "label" && (!labelingParams || suggestedLabels.length === 0)) }
+                        disabled={ 
+                            (s === "params" && !imageDataUri) || 
+                            (s === "label" && (!labelingParams || suggestedLabels.length === 0)) 
+                        }
                         className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors
                             ${step === s ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground hover:bg-muted'}
                             disabled:opacity-50 disabled:cursor-not-allowed
@@ -175,10 +231,19 @@ export default function LabelingPage() {
             ))}
         </div>
 
-        <div className="rounded-lg p-0 md:p-2"> {/* Optional subtle background for content area */}
+        <div className="rounded-lg p-0 md:p-2">
           {renderStepContent()}
         </div>
       </div>
     </MainLayout>
+  );
+}
+
+
+export default function LabelingPage() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <LabelingPageContent />
+    </QueryClientProvider>
   );
 }
