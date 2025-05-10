@@ -120,10 +120,10 @@ body {
       width: 100% !important;
       height: auto !important;
       margin: 0 !important;
-      padding: 10mm !important;
+      padding: 10mm !important; /* Overall padding for the printable page */
       box-shadow: none !important;
       border: none !important;
-      background-color: white !important;
+      background-color: white !important; /* Page background */
       color: black !important;
       font-size: 10pt !important;
     }
@@ -134,7 +134,7 @@ body {
     .printable-area h2 {
       font-size: 16pt !important;
       color: black !important;
-      margin-bottom: 0.5em !important; /* Adjusted margin */
+      margin-bottom: 0.5em !important;
     }
      .printable-area > p { /* The "Grid: X rows x Y columns" paragraph */
       font-size: 9pt !important;
@@ -148,6 +148,7 @@ body {
       height: auto !important;
       overflow: visible !important;
       border: none !important;
+      background-color: transparent !important; /* Make scroll area transparent so grid background shows */
     }
      .printable-area .h-\[60vh\], .printable-area .md\:h-\[70vh\] { /* Remove screen height restrictions */
         height: auto !important;
@@ -159,35 +160,37 @@ body {
 
     .printable-grid {
       display: grid !important;
-      background-color: white !important;
+      background-color: #ccc !important; /* Grid background becomes line color */
       padding: 0 !important;
-      gap: 1px !important; /* Minimal gap for print */
+      gap: 1px !important; /* This IS the line thickness */
+      border: 1px solid #ccc !important; /* Optional: border around the entire grid */
     }
     .printable-grid-cell {
-      border: 1px solid #ccc !important;
+      /* border: none !important; */ /* Cells don't have individual borders if gap is used for lines */
       page-break-inside: avoid !important;
-      background-color: white !important;
+      background-color: white !important; /* Cell background */
       display: flex !important;
       flex-direction: column !important;
-      align-items: center !important;
-      justify-content: flex-start !important;
-      padding: 2mm !important;
-      min-height: 20mm; /* Ensure minimum cell height for print */
+      align-items: flex-start !important; /* Align reference char to the left */
+      justify-content: space-between !important; /* Push char to top, line to bottom */
+      padding: 1.5mm 2mm !important; /* Adjust padding within cell */
+      min-height: 15mm; /* Minimum cell height for print */
     }
-    .printable-grid-cell span { /* The character itself */
-      color: black !important; 
-      font-size: 18pt !important; /* Adjusted for print */
-      line-height: 1.2 !important;
-      font-family: var(--font-geist-sans), 'Noto Sans Devanagari', sans-serif !important; /* Ensure font */
+    .printable-grid-cell .reference-char {
+      color: #444 !important; /* Slightly muted color for reference character */
+      font-size: 10pt !important; /* Smaller font size for reference character */
+      line-height: 1 !important; /* Compact line height */
+      font-family: var(--font-geist-sans), 'Noto Sans Devanagari', sans-serif !important;
     }
-    .printable-grid-cell .flex-grow { /* The writing line area */
+    .printable-grid-cell .writing-line {
+      width: 100% !important;
       border-top: 1px dashed #bbb !important;
-      margin-top: 0.5em !important;
+      margin-top: 0 !important; /* space-between on parent handles spacing */
     }
 
-    /* Hide scrollbars explicitly by targeting their role or common classes */
+    /* Hide scrollbars explicitly */
     .printable-area [role="scrollbar"],
-    .printable-area .scrollbar-thumb-class, /* Replace with actual class if known */
+    .printable-area .scrollbar-thumb-class, 
     .printable-area .scrollbar-track-class {
       display: none !important;
     }

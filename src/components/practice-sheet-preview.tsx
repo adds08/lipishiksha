@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { PracticeSheetConfig } from "@/app/generator/page";
@@ -9,7 +8,7 @@ interface PracticeSheetPreviewProps {
   config: PracticeSheetConfig;
 }
 
-const PREFERRED_COLS = 10; 
+const PREFERRED_COLS = 10;
 
 export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
   const { language } = config;
@@ -30,33 +29,27 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
 
   const cols = Math.min(PREFERRED_COLS, totalAlphabets);
   const rows = Math.ceil(totalAlphabets / cols);
-  
-  // Approximate cell dimensions for screen display - print styles will override for actual printing
-  const screenCellWidth = Math.max(50, 800 / Math.max(cols, 10)); 
-  const screenCellHeight = Math.max(50, 600 / Math.max(rows, 10)); 
 
-  const baseFontSize = Math.min(screenCellWidth, screenCellHeight) * 0.3;
-  const fontSize = language === 'ne' ? Math.max(16, baseFontSize * 1.2) : Math.max(14, baseFontSize);
+  // Screen font size for reference character - fixed small size
+  const referenceCharScreenFontSize = language === 'ne' ? 12 : 10;
 
   const languageName = SUPPORTED_LANGUAGES.find(lang => lang.value === language)?.label || language;
   const sheetTitle = `${languageName} Alphabet Practice`;
 
   return (
-    // Changed id to className, removed inline styles handled by global print CSS
     <div className="printable-area bg-card text-card-foreground p-4 md:p-8 rounded-md shadow-lg">
-      {/* Removed <style jsx global> block, styles moved to globals.css */}
       <h2 className="text-2xl font-semibold mb-2 text-center">{sheetTitle}</h2>
       <p className="text-sm text-muted-foreground mb-6 text-center">Grid: {rows} rows x {cols} columns</p>
       
-      {/* ScrollArea is for screen view; print CSS will make its content flow */}
-      <ScrollArea className="w-full h-[60vh] md:h-[70vh] border rounded-md">
+      <ScrollArea className="w-full h-[60vh] md:h-[70vh] border rounded-md bg-border"> {/* ScrollArea bg is border color for grid lines */}
         <div
-          className="printable-grid p-2 bg-card" // bg-card for screen, print CSS uses bg-white
+          className="printable-grid p-0" // Grid itself has no padding, bg is set by ScrollArea or overridden for print
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${cols}, minmax(${screenCellWidth}px, 1fr))`,
-            gridTemplateRows: `repeat(${rows}, minmax(${screenCellHeight}px, 1fr))`,
-            gap: '2px', 
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, // Ensure rows can shrink if needed
+            gap: '1px', // This creates the grid lines
+            // backgroundColor is handled by parent ScrollArea for screen, and print CSS for print
           }}
         >
           {Array.from({ length: rows * cols }).map((_, index) => {
@@ -65,27 +58,26 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
             return (
               <div
                 key={index}
-                className="printable-grid-cell border border-border flex flex-col items-center justify-start p-1"
+                // Cell has bg-card for screen, print CSS uses white. No cell border, grid gap forms lines.
+                className="printable-grid-cell bg-card flex flex-col items-start justify-between p-1" 
                 style={{
-                  // Screen-specific min dimensions, print CSS will override cell size if needed
-                  minWidth: `${screenCellWidth}px`,
-                  minHeight: `${screenCellHeight}px`,
+                  minHeight: '50px', // Minimum height for screen readability/writability
                 }}
               >
                 {charToDisplay && (
                   <span 
-                    className="text-foreground select-none" // Use foreground for screen, print CSS will make it black
+                    className="reference-char text-muted-foreground select-none" // Muted color for screen reference
                     style={{ 
-                      fontSize: `${fontSize}px`,
-                      lineHeight: `${fontSize * 1.2}px`,
-                      // Apply Noto Sans Devanagari for Nepali, otherwise use theme default
+                      fontSize: `${referenceCharScreenFontSize}px`,
+                      lineHeight: `1`, // Compact line height
                       fontFamily: language === 'ne' ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" : "var(--font-geist-sans), sans-serif",
                     }}
                   >
                     {charToDisplay}
                   </span>
                 )}
-                <div className="flex-grow w-full mt-1 border-t border-dashed border-border/50"></div>
+                {/* Writing line, pushed to the bottom by justify-between on parent */}
+                <div className="writing-line w-full border-t border-dashed border-border/50"></div>
               </div>
             );
           })}
