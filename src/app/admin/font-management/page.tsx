@@ -9,7 +9,7 @@ import { SavedFontsDisplay, type SavedFontDisplayData } from "@/components/admin
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { getSavedFontConfigurations, saveFontConfiguration, uploadFontFile, type SavedFontConfigServer } from "@/lib/firebase/fonts";
+import { getSavedFontConfigurations, saveFontConfiguration, uploadFontFile, type SavedFontConfigServer } from "@/lib/font-data-service"; // Updated import
 import { Loader2 } from "lucide-react";
 
 // Create a client
@@ -24,13 +24,14 @@ function FontManagementPageContent() {
     queryKey: ['savedFonts'],
     queryFn: getSavedFontConfigurations,
     select: (data) => data.map(font => ({
-      id: font.id!,
+      id: font.id,
       name: font.name,
       assignedLanguage: font.assignedLanguage,
       fileName: font.fileName,
       fileSize: font.fileSize,
       characterCount: font.characters.length,
-      createdAt: font.createdAt?.toDate ? font.createdAt.toDate() : (font.createdAt ? new Date(font.createdAt.seconds * 1000) : undefined),
+      // createdAt can be a string (ISO date) from the JSON store
+      createdAt: font.createdAt ? new Date(font.createdAt) : undefined, 
     })),
   });
 
@@ -41,6 +42,7 @@ function FontManagementPageContent() {
         throw new Error(`A font named "${details.name}" for language "${details.language}" is already saved.`);
       }
       
+      // uploadFontFile now handles local saving and returns paths/URLs
       const { storagePath, downloadURL } = await uploadFontFile(fontFile);
       const newFontId = await saveFontConfiguration(details, fontFile, storagePath, downloadURL);
       return { newFontId, name: details.name, language: details.language };
@@ -48,7 +50,7 @@ function FontManagementPageContent() {
     onSuccess: (data) => {
       toast({
         title: "Font Configuration Saved",
-        description: `"${data.name}" for ${data.language} has been saved to the database.`,
+        description: `"${data.name}" for ${data.language} has been saved locally.`,
         variant: "default",
       });
       refetchFonts();
@@ -79,7 +81,7 @@ function FontManagementPageContent() {
       <header className="space-y-2">
         <h2 className="text-2xl font-bold tracking-tight">Font Management</h2>
         <p className="text-muted-foreground">
-          Upload OpenType Font (OTF) files, assign a language, preview characters, and save configurations to the database.
+          Upload OpenType Font (OTF) files, assign a language, preview characters, and save configurations to a local JSON file.
         </p>
       </header>
 
@@ -87,7 +89,7 @@ function FontManagementPageContent() {
         <Card className="lg:col-span-1 shadow-lg">
           <CardHeader>
             <CardTitle>Upload & Configure Font</CardTitle>
-            <CardDescription>Select an OTF file, assign a language, and save to the database.</CardDescription>
+            <CardDescription>Select an OTF file, assign a language, and save the configuration.</CardDescription>
           </CardHeader>
           <CardContent>
             <FontUploadForm 

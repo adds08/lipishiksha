@@ -1,7 +1,8 @@
 
 "use client";
 
-import type { SavedFontConfigServer } from "@/lib/firebase/fonts"; // Updated import
+// SavedFontConfig from the new service will have createdAt as string
+import type { SavedFontConfig } from "@/lib/font-data-service"; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from 'date-fns'; // For formatting timestamp
+import { format } from 'date-fns';
 
 // Interface used by this component, derived from server data
 export interface SavedFontDisplayData {
@@ -24,8 +25,7 @@ export interface SavedFontDisplayData {
   fileName: string;
   fileSize: number;
   characterCount: number;
-  createdAt?: Date | string; // Allow string for initial display before full parsing
-  // downloadURL?: string; // Can add if a download button is desired
+  createdAt?: Date; // This will be Date object after conversion in page.tsx
 }
 
 
@@ -44,7 +44,7 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
           <CardDescription>Loading font configurations...</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Fetching data from the database.</p>
+          <p className="text-muted-foreground">Fetching data from the local store.</p>
         </CardContent>
       </Card>
     );
@@ -69,7 +69,7 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
       <CardHeader>
         <CardTitle>Saved Font Configurations</CardTitle>
         <CardDescription>
-          List of font configurations stored in the database.
+          List of font configurations stored in the local JSON file.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -98,9 +98,8 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
                     <TableCell>{font.fileName} ({(font.fileSize / 1024).toFixed(2)} KB)</TableCell>
                     <TableCell className="text-right">{font.characterCount}</TableCell>
                     <TableCell>
-                      {font.createdAt ? 
-                        (typeof font.createdAt === 'string' ? font.createdAt : format(font.createdAt, 'PPpp')) 
-                        : 'N/A'}
+                      {/* createdAt is now expected to be a Date object from the page component's select logic */}
+                      {font.createdAt ? format(font.createdAt, 'PPpp') : 'N/A'}
                     </TableCell>
                   </TableRow>
                 ))}
