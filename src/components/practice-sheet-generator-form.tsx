@@ -1,6 +1,7 @@
+
 "use client";
 
-import * as React from "react"; // Added import for React
+import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -28,9 +29,25 @@ import type { PracticeSheetConfig } from "@/app/generator/page";
 
 const formSchema = z.object({
   language: z.string().min(1, "Please select a language."),
-  character: z.string().min(1, "Please enter a character.").max(5, "Character input is too long."),
+  character: z.string().max(5, "Character input is too long (max 5 characters).").optional(),
   rows: z.coerce.number().min(1, "Minimum 1 row.").max(50, "Maximum 50 rows."),
   cols: z.coerce.number().min(1, "Minimum 1 column.").max(50, "Maximum 50 columns."),
+}).superRefine((values, ctx) => {
+  if (values.language !== 'ne') { // Character is required only if language is not Nepali
+    if (!values.character || values.character.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["character"],
+        message: "Please enter a character.",
+      });
+    } else if (values.character.length > 5) {
+       ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["character"],
+        message: "Character input is too long (max 5 characters).",
+      });
+    }
+  }
 });
 
 type PracticeSheetFormValues = z.infer<typeof formSchema>;
@@ -45,46 +62,70 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
     resolver: zodResolver(formSchema),
     defaultValues: {
       language: defaultConfig.language,
-      character: defaultConfig.character,
+      character: defaultConfig.language === 'ne' ? undefined : (defaultConfig.character || "A"),
       rows: defaultConfig.rows,
       cols: defaultConfig.cols,
     },
   });
 
-  function onSubmit(values: PracticeSheetFormValues) {
-    onConfigChange(values);
-  }
+  const selectedLanguage = form.watch("language");
 
-  // Update preview dynamically on field change
+  React.useEffect(() => {
+    // When language changes to Nepali, clear character field if it's not already for Nepali full alphabet mode
+    if (selectedLanguage === 'ne' && form.getValues("character") !== undefined) {
+      form.setValue("character", undefined, { shouldValidate: true });
+    }
+    // When language changes from Nepali to something else, set a default character if it's empty
+    // This ensures the form remains valid or prompts for character input.
+    if (selectedLanguage !== 'ne' && (form.getValues("character") === undefined || form.getValues("character") === "")) {
+       form.setValue("character", "A", { shouldValidate: true });
+    }
+  }, [selectedLanguage, form]);
+
+
   React.useEffect(() => {
     const subscription = form.watch((values) => {
-      // Ensure all values are defined before parsing, or provide defaults if necessary.
-      // This check helps prevent errors if form.watch emits incomplete data initially.
-      const completeValues = {
-        language: values.language || defaultConfig.language,
-        character: values.character || defaultConfig.character,
-        rows: values.rows === undefined ? defaultConfig.rows : Number(values.rows),
-        cols: values.cols === undefined ? defaultConfig.cols : Number(values.cols),
+      const currentValues: Partial<PracticeSheetFormValues> = {
+        ...values,
+        rows: values.rows !== undefined ? Number(values.rows) : defaultConfig.rows,
+        cols: values.cols !== undefined ? Number(values.cols) : defaultConfig.cols,
       };
-      const parsedValues = formSchema.safeParse(completeValues);
+      
+      // If language is Nepali, ensure character is undefined for the config
+      if (currentValues.language === 'ne') {
+        currentValues.character = undefined;
+      }
+
+      const parsedValues = formSchema.safeParse(currentValues);
       if (parsedValues.success) {
         onConfigChange(parsedValues.data as PracticeSheetConfig);
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, onConfigChange, formSchema, defaultConfig]);
+  }, [form, onConfigChange, defaultConfig, formSchema]);
 
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(values => onConfigChange(values as PracticeSheetConfig))} className="space-y-6">
         <FormField
           control={form.control}
           name="language"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Language</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select 
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  // Trigger re-validation or specific logic if needed when language changes
+                  if (value === 'ne') {
+                    form.setValue('character', undefined, {shouldValidate: true});
+                  } else if (form.getValues('character') === undefined) {
+                     form.setValue('character', 'A', {shouldValidate: true});
+                  }
+                }} 
+                defaultValue={field.value}
+              >
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a language" />
@@ -99,29 +140,36 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
                 </SelectContent>
               </Select>
               <FormDescription>
-                Choose the language for the practice sheet.
+                Choose the language. Nepali will generate all standard alphabets.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="character"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="flex items-center gap-2"><PenLine className="w-4 h-4" /> Character to Practice</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., A, क" {...field} />
-              </FormControl>
-              <FormDescription>
-                Enter the single character or very short text to be displayed in each grid cell.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {selectedLanguage !== 'ne' && (
+          <FormField
+            control={form.control}
+            name="character"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center gap-2"><PenLine className="w-4 h-4" /> Character to Practice</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="e.g., A" 
+                    {...field} 
+                    value={field.value || ""} // Ensure controlled component even if value is undefined
+                    disabled={selectedLanguage === 'ne'}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Enter the single character or very short text (max 5). Hidden for Nepali.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
@@ -154,12 +202,6 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
             )}
           />
         </div>
-        {/* The form submission is handled by useEffect watching changes, so a submit button isn't strictly necessary for live updates. 
-            If explicit submission before preview update is desired, uncomment this:
-        <Button type="submit" className="w-full md:w-auto">
-          <RefreshCw className="mr-2 h-4 w-4" /> Update Preview
-        </Button> 
-        */}
       </form>
     </Form>
   );
