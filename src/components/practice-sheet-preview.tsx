@@ -31,7 +31,6 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
   const cols = Math.min(PREFERRED_COLS, totalAlphabets);
   const rows = Math.ceil(totalAlphabets / cols);
 
-  // Screen font size for reference character - fixed small size
   const referenceCharScreenFontSize = language === 'ne' ? 12 : 10;
 
   const languageName = SUPPORTED_LANGUAGES.find(lang => lang.value === language)?.label || language;
@@ -42,7 +41,6 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
       <h2 className="text-2xl font-semibold mb-2 text-center">{sheetTitle}</h2>
       <p className="text-sm text-muted-foreground mb-6 text-center">Grid: {rows} rows x {cols} columns</p>
       
-      {/* Changed ScrollArea background from bg-border to bg-card for a white background on screen */}
       <ScrollArea className="w-full h-[60vh] md:h-[70vh] border rounded-md bg-card"> 
         <div
           className="printable-grid p-0" 
@@ -50,7 +48,6 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
             display: 'grid',
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
             gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, 
-            // Removed gap: '1px', cell borders will define the grid structure
           }}
         >
           {Array.from({ length: rows * cols }).map((_, index) => {
@@ -59,11 +56,10 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
             return (
               <div
                 key={index}
-                // Cell has bg-card for screen. Added border for screen visibility.
-                // Changed justify-between to justify-start to align content at the top.
-                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1 border border-dashed border-border" 
+                // Screen: Cell with solid border. Print: Overridden by globals.css for table-like cells.
+                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1 border border-border" 
                 style={{
-                  minHeight: '50px', // Minimum height for screen readability/writability
+                  minHeight: '60px', // Increased min height for screen readability/writability with inner box
                 }}
               >
                 {charToDisplay && (
@@ -73,13 +69,19 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
                       fontSize: `${referenceCharScreenFontSize}px`,
                       lineHeight: `1`, 
                       fontFamily: language === 'ne' ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" : "var(--font-geist-sans), sans-serif",
-                      // Reference character will be at the top-left due to parent's flex settings
+                      marginBottom: '4px', // Small space between ref char and writing area on screen
                     }}
                   >
                     {charToDisplay}
                   </span>
                 )}
-                {/* Writing line div is removed. Cell itself provides writing space. */}
+                {/* This div will be the dotted box for writing, primarily styled for print */}
+                <div 
+                  className="writing-area-dotted w-full flex-grow border border-dashed border-gray-300" // Basic screen style for the dotted area
+                  style={{minHeight: '30px'}} // Minimum height for the writing area on screen
+                >
+                  {/* Content for writing area (e.g., guidelines) could go here if needed, but usually empty */}
+                </div>
               </div>
             );
           })}
