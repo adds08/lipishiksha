@@ -11,7 +11,7 @@ interface PracticeSheetPreviewProps {
   fontFileUrl: string | null;
 }
 
-const PREFERRED_COLS = 10;
+const PREFERRED_COLS = 8; // Changed from 10 to 8
 
 export function PracticeSheetPreview({ 
   language, 
@@ -33,15 +33,12 @@ export function PracticeSheetPreview({
     if (fontFileUrl && fontName) {
       const uniqueFontFamily = `GenSheet_${fontName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
       
-      // Basic format detection from URL extension (less reliable) or assume based on common types
       let fontFormat = '';
       if (fontFileUrl.toLowerCase().endsWith('.otf')) fontFormat = 'opentype';
       else if (fontFileUrl.toLowerCase().endsWith('.ttf')) fontFormat = 'truetype';
-      // Add more formats if needed (woff, woff2)
 
       if (!fontFormat) {
         console.warn("Could not determine font format for preview from URL:", fontFileUrl);
-        // Proceed without custom font or try a default
       }
 
       const fontFaceRule = `
@@ -60,17 +57,17 @@ export function PracticeSheetPreview({
     }
 
     return () => {
-      if (fontStyleTag && fontStyleTag.parentNode) { // Check current closure's styleTag
+      if (fontStyleTag && fontStyleTag.parentNode) { 
         fontStyleTag.parentNode.removeChild(fontStyleTag);
       }
     };
-  }, [fontFileUrl, fontName]); // Re-run if fontFileUrl or fontName changes
+  }, [fontFileUrl, fontName]); 
 
   const totalAlphabets = characters.length;
 
   if (totalAlphabets === 0) {
     return (
-      <div className="mt-6 bg-muted/30 p-4 rounded-md">
+      <div className="mt-6 bg-muted/30 p-4 rounded-md printable-area">
         <h3 className="text-lg font-semibold">Practice Sheet Preview</h3>
         <p className="text-muted-foreground">
           No characters available for the selected font, or please select a language/font.
@@ -79,22 +76,22 @@ export function PracticeSheetPreview({
     );
   }
 
-  const cols = Math.min(PREFERRED_COLS, totalAlphabets);
-  const rows = Math.ceil(totalAlphabets / cols);
+  const cols = Math.min(PREFERRED_COLS, totalAlphabets > 0 ? totalAlphabets : PREFERRED_COLS);
+  const rows = totalAlphabets > 0 ? Math.ceil(totalAlphabets / cols) : 0;
+  
+  // Adjusted font size for reference characters
+  const referenceCharScreenFontSize = language === 'ne' ? 14 : 12; 
 
-  const referenceCharScreenFontSize = language === 'ne' ? 12 : 10; // Keep language-specific sizing
-
-  // Use dynamicFontFamily if available, otherwise fallback or use a generic sans-serif
   const currentFontFamilyToApply = dynamicFontFamily || 
                                  (language === 'ne' && !dynamicFontFamily ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
                                                     : "var(--font-geist-sans), sans-serif");
   
-  const sheetTitle = `${fontName || language} Alphabet Practice`;
+  const sheetTitle = `${fontName || language} Character Practice`; // Changed "Alphabet" to "Character"
 
   return (
-    <div className="printable-area bg-card text-card-foreground p-4 md:p-8 rounded-md shadow-lg">
-      <h2 className="text-2xl font-semibold mb-2 text-center">{sheetTitle}</h2>
-      <p className="text-sm text-muted-foreground mb-6 text-center">Grid: {rows} rows x {cols} columns</p>
+    <div className="printable-area bg-card text-card-foreground p-4 md:p-6 rounded-md shadow-lg"> {/* Adjusted padding */}
+      <h2 className="text-xl md:text-2xl font-semibold mb-1 text-center">{sheetTitle}</h2>
+      <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">Grid: {rows} rows x {cols} columns</p>
       
       <ScrollArea className="w-full h-[60vh] md:h-[70vh] border rounded-md bg-card"> 
         <div
@@ -102,7 +99,8 @@ export function PracticeSheetPreview({
           style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, 
+            // Rows will be sized by content, or ensure minmax allows for growth
+            gridAutoRows: `minmax(70px, auto)`, // Ensure rows have a minimum height
           }}
         >
           {Array.from({ length: rows * cols }).map((_, index) => {
@@ -111,9 +109,9 @@ export function PracticeSheetPreview({
             return (
               <div
                 key={index}
-                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1 border border-border" 
+                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1.5 border border-border" 
                 style={{
-                  minHeight: '60px',
+                  minHeight: '70px', // Increased minHeight for larger cells
                 }}
               >
                 {charToDisplay && (
@@ -123,7 +121,7 @@ export function PracticeSheetPreview({
                       fontSize: `${referenceCharScreenFontSize}px`,
                       lineHeight: `1`, 
                       fontFamily: currentFontFamilyToApply,
-                      marginBottom: '4px',
+                      marginBottom: '4px', // Space between ref char and dotted box
                     }}
                   >
                     {charToDisplay}
@@ -131,7 +129,7 @@ export function PracticeSheetPreview({
                 )}
                 <div 
                   className="writing-area-dotted w-full flex-grow border border-dashed border-gray-300"
-                  style={{minHeight: '30px'}} 
+                  style={{minHeight: '40px'}} // Increased minHeight for writing area
                 >
                 </div>
               </div>
