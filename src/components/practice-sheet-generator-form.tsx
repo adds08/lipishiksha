@@ -44,9 +44,14 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
   });
 
   React.useEffect(() => {
-    // Update the form if defaultConfig changes externally
-    form.reset({ language: defaultConfig.language });
-  }, [defaultConfig, form]);
+    // Only reset the form's language field if defaultConfig.language
+    // is different from the current value in the form.
+    // This prevents an infinite loop where form.reset triggers form.watch,
+    // which calls onConfigChange, which updates defaultConfig, leading back here.
+    if (form.getValues("language") !== defaultConfig.language) {
+      form.reset({ language: defaultConfig.language });
+    }
+  }, [defaultConfig.language, form]); // form instance is stable, includes getValues and reset
 
   React.useEffect(() => {
     const subscription = form.watch((values) => {
@@ -56,11 +61,13 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, onConfigChange, formSchema]);
+  }, [form, onConfigChange]); // form instance and onConfigChange are stable
 
 
   return (
     <Form {...form}>
+      {/* The onSubmit on the form tag is not strictly necessary here if we only have one field 
+          and updates happen on change, but it's harmless. */}
       <form onSubmit={form.handleSubmit(values => onConfigChange(values as PracticeSheetConfig))} className="space-y-6">
         <FormField
           control={form.control}
@@ -68,11 +75,17 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
           render={({ field }) => (
             <FormItem>
               <FormLabel>Language</FormLabel>
-              <Select 
+              <Select
                 onValueChange={(value) => {
                   field.onChange(value);
-                }} 
-                defaultValue={field.value}
+                  // form.handleSubmit is not needed here for on-change updates
+                  // The form.watch effect handles calling onConfigChange
+                }}
+                defaultValue={field.value} // defaultValue should generally be used for uncontrolled or initial setup.
+                                          // For controlled components with react-hook-form, field.value is usually enough for SelectValue.
+                                          // However, SelectTrigger might need it for initial display if SelectValue isn't sufficient.
+                                          // Or use `value={field.value}` on Select component itself.
+                                          // Given the setup, defaultValue on Select and field.value for SelectValue should work.
               >
                 <FormControl>
                   <SelectTrigger>
@@ -94,8 +107,8 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
             </FormItem>
           )}
         />
+        {/* No submit button is rendered as per previous changes, changes are instant via onConfigChange */}
       </form>
     </Form>
   );
 }
-
