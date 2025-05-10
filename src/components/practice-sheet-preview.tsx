@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { PracticeSheetConfig } from "@/app/generator/page";
@@ -41,15 +42,15 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
       <h2 className="text-2xl font-semibold mb-2 text-center">{sheetTitle}</h2>
       <p className="text-sm text-muted-foreground mb-6 text-center">Grid: {rows} rows x {cols} columns</p>
       
-      <ScrollArea className="w-full h-[60vh] md:h-[70vh] border rounded-md bg-border"> {/* ScrollArea bg is border color for grid lines */}
+      {/* Changed ScrollArea background from bg-border to bg-card for a white background on screen */}
+      <ScrollArea className="w-full h-[60vh] md:h-[70vh] border rounded-md bg-card"> 
         <div
-          className="printable-grid p-0" // Grid itself has no padding, bg is set by ScrollArea or overridden for print
+          className="printable-grid p-0" 
           style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, // Ensure rows can shrink if needed
-            gap: '1px', // This creates the grid lines
-            // backgroundColor is handled by parent ScrollArea for screen, and print CSS for print
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`, 
+            // Removed gap: '1px', cell borders will define the grid structure
           }}
         >
           {Array.from({ length: rows * cols }).map((_, index) => {
@@ -58,26 +59,27 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
             return (
               <div
                 key={index}
-                // Cell has bg-card for screen, print CSS uses white. No cell border, grid gap forms lines.
-                className="printable-grid-cell bg-card flex flex-col items-start justify-between p-1" 
+                // Cell has bg-card for screen. Added border for screen visibility.
+                // Changed justify-between to justify-start to align content at the top.
+                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1 border border-dashed border-border" 
                 style={{
                   minHeight: '50px', // Minimum height for screen readability/writability
                 }}
               >
                 {charToDisplay && (
                   <span 
-                    className="reference-char text-muted-foreground select-none" // Muted color for screen reference
+                    className="reference-char text-muted-foreground select-none" 
                     style={{ 
                       fontSize: `${referenceCharScreenFontSize}px`,
-                      lineHeight: `1`, // Compact line height
+                      lineHeight: `1`, 
                       fontFamily: language === 'ne' ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" : "var(--font-geist-sans), sans-serif",
+                      // Reference character will be at the top-left due to parent's flex settings
                     }}
                   >
                     {charToDisplay}
                   </span>
                 )}
-                {/* Writing line, pushed to the bottom by justify-between on parent */}
-                <div className="writing-line w-full border-t border-dashed border-border/50"></div>
+                {/* Writing line div is removed. Cell itself provides writing space. */}
               </div>
             );
           })}
@@ -86,3 +88,4 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
     </div>
   );
 }
+

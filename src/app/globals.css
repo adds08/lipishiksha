@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -148,7 +149,7 @@ body {
       height: auto !important;
       overflow: visible !important;
       border: none !important;
-      background-color: transparent !important; /* Make scroll area transparent so grid background shows */
+      background-color: transparent !important; /* Make scroll area transparent */
     }
      .printable-area .h-\[60vh\], .printable-area .md\:h-\[70vh\] { /* Remove screen height restrictions */
         height: auto !important;
@@ -160,20 +161,20 @@ body {
 
     .printable-grid {
       display: grid !important;
-      background-color: #ccc !important; /* Grid background becomes line color */
+      background-color: transparent !important; /* Grid container is transparent */
       padding: 0 !important;
-      gap: 1px !important; /* This IS the line thickness */
-      border: 1px solid #ccc !important; /* Optional: border around the entire grid */
+      /* gap: 1px !important; -- Removed, cell borders will define structure */
+      /* border: 1px solid #ccc !important; -- Removed outer grid border */
     }
     .printable-grid-cell {
-      /* border: none !important; */ /* Cells don't have individual borders if gap is used for lines */
+      border: 1px dashed #888 !important; /* Dashed border for each cell */
       page-break-inside: avoid !important;
-      background-color: white !important; /* Cell background */
+      background-color: white !important; /* Cell background is white */
       display: flex !important;
       flex-direction: column !important;
-      align-items: flex-start !important; /* Align reference char to the left */
-      justify-content: space-between !important; /* Push char to top, line to bottom */
-      padding: 1.5mm 2mm !important; /* Adjust padding within cell */
+      align-items: flex-start !important; /* Align reference char to the top-left */
+      justify-content: flex-start !important; /* Content starts from top */
+      padding: 1.5mm 2mm !important; /* Padding inside the cell */
       min-height: 15mm; /* Minimum cell height for print */
     }
     .printable-grid-cell .reference-char {
@@ -183,9 +184,7 @@ body {
       font-family: var(--font-geist-sans), 'Noto Sans Devanagari', sans-serif !important;
     }
     .printable-grid-cell .writing-line {
-      width: 100% !important;
-      border-top: 1px dashed #bbb !important;
-      margin-top: 0 !important; /* space-between on parent handles spacing */
+      display: none !important; /* Hide the old writing line if any styles remain */
     }
 
     /* Hide scrollbars explicitly */
