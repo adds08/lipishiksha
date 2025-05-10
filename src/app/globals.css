@@ -167,22 +167,23 @@ body {
       gap: 0 !important; /* No gap, cell borders will define the grid */
     }
     .printable-grid-cell {
-      border: 1px solid #777 !important; /* Solid border for each cell (table lines) */
+      border: 1px solid #333 !important; /* Solid border for each cell, matching grid */
       page-break-inside: avoid !important;
       background-color: white !important; 
       display: flex !important;
       flex-direction: column !important;
       align-items: flex-start !important; 
       justify-content: flex-start !important;
-      padding: 1.5mm 2mm !important; 
+      padding: 2mm 2.5mm !important; /* Adjusted padding */
       min-height: 15mm; 
     }
     .printable-grid-cell .reference-char {
-      color: #444 !important; 
-      font-size: 10pt !important; 
+      color: #333 !important; /* Darker color for reference char */
+      font-size: 14pt !important; /* Increased font size */
+      font-weight: 600 !important; /* Semibold */
       line-height: 1 !important; 
-      font-family: var(--font-geist-sans), 'Noto Sans Devanagari', sans-serif !important;
-      margin-bottom: 1mm; /* Space between ref char and dotted writing box */
+      /* font-family is now inherited from inline style set in the component */
+      margin-bottom: 1.5mm; /* Space between ref char and dotted writing box */
     }
     
     .printable-grid-cell .writing-area-dotted {

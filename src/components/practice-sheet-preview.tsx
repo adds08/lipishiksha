@@ -11,7 +11,7 @@ interface PracticeSheetPreviewProps {
   fontFileUrl: string | null;
 }
 
-const PREFERRED_COLS = 8; // Changed from 10 to 8
+const PREFERRED_COLS = 8; 
 
 export function PracticeSheetPreview({ 
   language, 
@@ -23,7 +23,6 @@ export function PracticeSheetPreview({
   const [fontStyleTag, setFontStyleTag] = useState<HTMLStyleElement | null>(null);
 
   useEffect(() => {
-    // Cleanup previous font style tag if any
     if (fontStyleTag && fontStyleTag.parentNode) {
       fontStyleTag.parentNode.removeChild(fontStyleTag);
       setFontStyleTag(null);
@@ -37,7 +36,7 @@ export function PracticeSheetPreview({
       if (fontFileUrl.toLowerCase().endsWith('.otf')) fontFormat = 'opentype';
       else if (fontFileUrl.toLowerCase().endsWith('.ttf')) fontFormat = 'truetype';
 
-      if (!fontFormat) {
+      if (!fontFormat && fontFileUrl) { // Check fontFileUrl to avoid warning when it's legitimately null
         console.warn("Could not determine font format for preview from URL:", fontFileUrl);
       }
 
@@ -79,17 +78,16 @@ export function PracticeSheetPreview({
   const cols = Math.min(PREFERRED_COLS, totalAlphabets > 0 ? totalAlphabets : PREFERRED_COLS);
   const rows = totalAlphabets > 0 ? Math.ceil(totalAlphabets / cols) : 0;
   
-  // Adjusted font size for reference characters
-  const referenceCharScreenFontSize = language === 'ne' ? 14 : 12; 
+  const referenceCharScreenFontSize = language === 'ne' ? '18px' : '16px'; 
 
   const currentFontFamilyToApply = dynamicFontFamily || 
                                  (language === 'ne' && !dynamicFontFamily ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
                                                     : "var(--font-geist-sans), sans-serif");
   
-  const sheetTitle = `${fontName || language} Character Practice`; // Changed "Alphabet" to "Character"
+  const sheetTitle = `${fontName || language} Character Practice`;
 
   return (
-    <div className="printable-area bg-card text-card-foreground p-4 md:p-6 rounded-md shadow-lg"> {/* Adjusted padding */}
+    <div className="printable-area bg-card text-card-foreground p-4 md:p-6 rounded-md shadow-lg">
       <h2 className="text-xl md:text-2xl font-semibold mb-1 text-center">{sheetTitle}</h2>
       <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">Grid: {rows} rows x {cols} columns</p>
       
@@ -99,8 +97,7 @@ export function PracticeSheetPreview({
           style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            // Rows will be sized by content, or ensure minmax allows for growth
-            gridAutoRows: `minmax(70px, auto)`, // Ensure rows have a minimum height
+            gridAutoRows: `minmax(70px, auto))`, 
           }}
         >
           {Array.from({ length: rows * cols }).map((_, index) => {
@@ -109,19 +106,20 @@ export function PracticeSheetPreview({
             return (
               <div
                 key={index}
-                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1.5 border border-border" 
+                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-2 border border-border" // Screen padding p-2
                 style={{
-                  minHeight: '70px', // Increased minHeight for larger cells
+                  minHeight: '70px', 
                 }}
               >
                 {charToDisplay && (
                   <span 
                     className="reference-char text-muted-foreground select-none" 
                     style={{ 
-                      fontSize: `${referenceCharScreenFontSize}px`,
+                      fontSize: referenceCharScreenFontSize,
+                      fontWeight: 600, // semibold
                       lineHeight: `1`, 
                       fontFamily: currentFontFamilyToApply,
-                      marginBottom: '4px', // Space between ref char and dotted box
+                      marginBottom: '4px', 
                     }}
                   >
                     {charToDisplay}
@@ -129,7 +127,7 @@ export function PracticeSheetPreview({
                 )}
                 <div 
                   className="writing-area-dotted w-full flex-grow border border-dashed border-gray-300"
-                  style={{minHeight: '40px'}} // Increased minHeight for writing area
+                  style={{minHeight: '40px'}} 
                 >
                 </div>
               </div>
@@ -140,3 +138,4 @@ export function PracticeSheetPreview({
     </div>
   );
 }
+
