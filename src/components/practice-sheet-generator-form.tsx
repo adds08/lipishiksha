@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import * as React from "react"; // Added import for React
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -58,13 +58,21 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
   // Update preview dynamically on field change
   React.useEffect(() => {
     const subscription = form.watch((values) => {
-      const parsedValues = formSchema.safeParse(values);
+      // Ensure all values are defined before parsing, or provide defaults if necessary.
+      // This check helps prevent errors if form.watch emits incomplete data initially.
+      const completeValues = {
+        language: values.language || defaultConfig.language,
+        character: values.character || defaultConfig.character,
+        rows: values.rows === undefined ? defaultConfig.rows : Number(values.rows),
+        cols: values.cols === undefined ? defaultConfig.cols : Number(values.cols),
+      };
+      const parsedValues = formSchema.safeParse(completeValues);
       if (parsedValues.success) {
         onConfigChange(parsedValues.data as PracticeSheetConfig);
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, onConfigChange, formSchema]);
+  }, [form, onConfigChange, formSchema, defaultConfig]);
 
 
   return (
