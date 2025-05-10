@@ -5,8 +5,8 @@ export const SUPPORTED_LANGUAGES = [
   // Add other languages here if needed
 ];
 
-export const DEFAULT_GRID_ROWS = 10;
-export const DEFAULT_GRID_COLS = 10;
+export const DEFAULT_GRID_ROWS = 10; // Kept for labeling form defaults
+export const DEFAULT_GRID_COLS = 10; // Kept for labeling form defaults
 
 export const NEPALI_ALPHABETS: string[] = [
   // Vowels (स्वरवर्ण)
@@ -21,4 +21,9 @@ export const NEPALI_ALPHABETS: string[] = [
   'श', 'ष', 'स', 'ह',
   // Common Conjuncts often taught with alphabet
   'क्ष', 'त्र', 'ज्ञ'
+];
+
+export const ENGLISH_ALPHABETS: string[] = [
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+  'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
 ];
