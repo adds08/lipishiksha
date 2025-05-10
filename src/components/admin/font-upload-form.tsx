@@ -24,19 +24,18 @@ import { Loader2, Save } from "lucide-react";
 
 export interface ParsedFontDetails {
   name: string;
-  language: string; // This is the "assigned language" by the admin
+  language: string; 
   characters: string[];
 }
 
 interface FontUploadFormProps {
-  onFontProcessed: (details: ParsedFontDetails | null) => void;
+  onFontProcessed: (details: ParsedFontDetails | null, file: File | null) => void;
   onSaveConfiguration: (details: ParsedFontDetails, fontFile: File) => void;
-  isSaving: boolean; // Added prop to indicate saving state
+  isSaving: boolean;
 }
 
 const formSchema = z.object({
   language: z.string().min(2, "Language name/code is required (e.g., 'en', 'Nepali').").max(50, "Language name/code is too long."),
-  // File itself is handled outside react-hook-form state, but validated before save
 });
 
 type FontFormValues = z.infer<typeof formSchema>;
@@ -62,7 +61,7 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
       parseFont(selectedFile, currentLanguageValue);
     } else if (!selectedFile || !currentLanguageValue) {
       setCurrentParsedDetails(null);
-      onFontProcessed(null);
+      onFontProcessed(null, null); // Pass null for file as well
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLanguageValue, selectedFile]); 
@@ -71,13 +70,13 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
     const file = event.target.files?.[0];
     setParsingError(null); 
     setCurrentParsedDetails(null); 
-    onFontProcessed(null); 
+    onFontProcessed(null, null); // Pass null for file as well
 
     if (file) {
       if (file.type !== "font/otf" && !file.name.toLowerCase().endsWith(".otf")) {
         setFileError("Invalid file type. Please upload an OTF (.otf) font file.");
         setSelectedFile(null);
-        event.target.value = ""; // Reset file input
+        event.target.value = ""; 
         return;
       }
       setSelectedFile(file);
@@ -94,7 +93,7 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
   const parseFont = async (file: File, language: string) => {
     if (!language) {
       setParsingError("Language not entered. Cannot parse font.");
-      onFontProcessed(null);
+      onFontProcessed(null, file); // Pass file even if language is missing initially
       setCurrentParsedDetails(null);
       return;
     }
@@ -112,6 +111,7 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
         const glyph = font.glyphs.get(i);
         if (glyph.unicode !== undefined) {
           const char = String.fromCharCode(glyph.unicode);
+          // Filter for printable characters (ASCII 32 and above) or common whitespace (tab, LF, CR)
           if (glyph.unicode >= 32 || [9, 10, 13].includes(glyph.unicode)) {
             characters.push(char);
           }
@@ -130,13 +130,13 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
 
       const parsedDetails = { name, language, characters: uniquePrintableChars };
       setCurrentParsedDetails(parsedDetails);
-      onFontProcessed(parsedDetails);
+      onFontProcessed(parsedDetails, file);
 
     } catch (e) {
       console.error("Font parsing error:", e);
       const errorMsg = e instanceof Error ? e.message : String(e);
       setParsingError(`Failed to parse font: ${errorMsg}. Ensure it's a valid OTF file.`);
-      onFontProcessed(null);
+      onFontProcessed(null, file); // Pass file even on error
       setCurrentParsedDetails(null);
     }
     setIsParsing(false);
@@ -153,10 +153,16 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
     }
     if (!currentParsedDetails) {
       setParsingError("Font data is not available or parsing failed. Cannot save.");
+      // Attempt to re-parse if file and language are present but details are missing
       if(selectedFile && currentLanguageValue) {
         parseFont(selectedFile, currentLanguageValue).then(() => {
-           if(currentParsedDetails) { 
-             onSaveConfiguration(currentParsedDetails, selectedFile);
+           // After re-parse, currentParsedDetails might be updated. Check it again.
+           const updatedDetails = currentParsedDetails; // Re-read state
+           if(updatedDetails) { 
+             onSaveConfiguration(updatedDetails, selectedFile);
+           } else {
+             // Still no details, persist parsing error.
+             setParsingError("Font data could not be processed. Cannot save.");
            }
         });
       }

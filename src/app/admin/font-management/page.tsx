@@ -17,6 +17,7 @@ const queryClient = new QueryClient();
 
 function FontManagementPageContent() {
   const [currentFontForPreview, setCurrentFontForPreview] = useState<ParsedFontDetails | null>(null);
+  const [currentFontFileForPreview, setCurrentFontFileForPreview] = useState<File | null>(null);
   const { toast } = useToast();
 
   const { data: savedFontsData, isLoading: isLoadingFonts, error: fontsError, refetch: refetchFonts } = useQuery<SavedFontConfigServer[], Error, SavedFontDisplayData[]>({
@@ -30,13 +31,11 @@ function FontManagementPageContent() {
       fileSize: font.fileSize,
       characterCount: font.characters.length,
       createdAt: font.createdAt?.toDate ? font.createdAt.toDate() : (font.createdAt ? new Date(font.createdAt.seconds * 1000) : undefined),
-      // downloadURL: font.downloadURL, // available if needed
     })),
   });
 
   const saveFontMutation = useMutation({
     mutationFn: async ({ details, fontFile }: { details: ParsedFontDetails, fontFile: File }) => {
-      // Check for duplicates before uploading (optional, based on your requirements)
       const existingFont = savedFontsData?.find(f => f.name === details.name && f.assignedLanguage === details.language);
       if (existingFont) {
         throw new Error(`A font named "${details.name}" for language "${details.language}" is already saved.`);
@@ -52,8 +51,9 @@ function FontManagementPageContent() {
         description: `"${data.name}" for ${data.language} has been saved to the database.`,
         variant: "default",
       });
-      refetchFonts(); // Refetch the list of fonts
-      setCurrentFontForPreview(null); // Clear preview after successful save
+      refetchFonts();
+      setCurrentFontForPreview(null);
+      setCurrentFontFileForPreview(null);
     },
     onError: (error: Error) => {
       toast({
@@ -65,8 +65,9 @@ function FontManagementPageContent() {
   });
 
 
-  const handleFontProcessed = (details: ParsedFontDetails | null) => {
+  const handleFontProcessed = (details: ParsedFontDetails | null, file: File | null) => {
     setCurrentFontForPreview(details);
+    setCurrentFontFileForPreview(file);
   };
 
   const handleSaveFontConfiguration = (details: ParsedFontDetails, fontFile: File) => {
@@ -76,7 +77,7 @@ function FontManagementPageContent() {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <h2 className="text-2xl font.bold tracking-tight">Font Management</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Font Management</h2>
         <p className="text-muted-foreground">
           Upload OpenType Font (OTF) files, assign a language, preview characters, and save configurations to the database.
         </p>
@@ -104,23 +105,20 @@ function FontManagementPageContent() {
         </Card>
 
         <div className="lg:col-span-2">
-          {currentFontForPreview ? (
+          {currentFontForPreview && currentFontFileForPreview ? (
             <FontCharacterPreview
               fontName={currentFontForPreview.name}
               language={currentFontForPreview.language}
               characters={currentFontForPreview.characters}
+              fontFile={currentFontFileForPreview}
             />
           ) : (
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle>Character Preview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Upload a font and select a language to see its character set displayed here.
-                </p>
-              </CardContent>
-            </Card>
+             <FontCharacterPreview
+              fontName={currentFontForPreview?.name || ""}
+              language={currentFontForPreview?.language || ""}
+              characters={currentFontForPreview?.characters || []}
+              fontFile={null}
+            />
           )}
         </div>
       </div>
