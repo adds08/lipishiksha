@@ -1,28 +1,79 @@
 
 "use client";
 
-import type { PracticeSheetConfig } from "@/app/generator/page";
+import React, { useEffect, useState } from "react";
 import { ScrollArea } from "./ui/scroll-area";
-import { NEPALI_ALPHABETS, ENGLISH_ALPHABETS, SUPPORTED_LANGUAGES } from "@/lib/constants";
 
 interface PracticeSheetPreviewProps {
-  config: PracticeSheetConfig;
+  language: string; // e.g. "ne", "en"
+  fontName: string; // e.g. "Preeti", "Arial"
+  characters: string[];
+  fontFileUrl: string | null;
 }
 
 const PREFERRED_COLS = 10;
 
-export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
-  const { language } = config;
+export function PracticeSheetPreview({ 
+  language, 
+  fontName, 
+  characters, 
+  fontFileUrl 
+}: PracticeSheetPreviewProps) {
+  const [dynamicFontFamily, setDynamicFontFamily] = useState<string | null>(null);
+  const [fontStyleTag, setFontStyleTag] = useState<HTMLStyleElement | null>(null);
 
-  const alphabetsToDisplay = language === 'ne' ? NEPALI_ALPHABETS : ENGLISH_ALPHABETS;
-  const totalAlphabets = alphabetsToDisplay.length;
+  useEffect(() => {
+    // Cleanup previous font style tag if any
+    if (fontStyleTag && fontStyleTag.parentNode) {
+      fontStyleTag.parentNode.removeChild(fontStyleTag);
+      setFontStyleTag(null);
+    }
+    setDynamicFontFamily(null);
+
+    if (fontFileUrl && fontName) {
+      const uniqueFontFamily = `GenSheet_${fontName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
+      
+      // Basic format detection from URL extension (less reliable) or assume based on common types
+      let fontFormat = '';
+      if (fontFileUrl.toLowerCase().endsWith('.otf')) fontFormat = 'opentype';
+      else if (fontFileUrl.toLowerCase().endsWith('.ttf')) fontFormat = 'truetype';
+      // Add more formats if needed (woff, woff2)
+
+      if (!fontFormat) {
+        console.warn("Could not determine font format for preview from URL:", fontFileUrl);
+        // Proceed without custom font or try a default
+      }
+
+      const fontFaceRule = `
+        @font-face {
+          font-family: "${uniqueFontFamily}";
+          src: url("${fontFileUrl}") ${fontFormat ? `format("${fontFormat}")` : ''};
+        }
+      `;
+
+      const newStyleTag = document.createElement('style');
+      newStyleTag.textContent = fontFaceRule;
+      document.head.appendChild(newStyleTag);
+
+      setFontStyleTag(newStyleTag);
+      setDynamicFontFamily(uniqueFontFamily);
+    }
+
+    return () => {
+      if (fontStyleTag && fontStyleTag.parentNode) { // Check current closure's styleTag
+        fontStyleTag.parentNode.removeChild(fontStyleTag);
+      }
+    };
+  }, [fontFileUrl, fontName]); // Re-run if fontFileUrl or fontName changes
+
+  const totalAlphabets = characters.length;
 
   if (totalAlphabets === 0) {
     return (
       <div className="mt-6 bg-muted/30 p-4 rounded-md">
         <h3 className="text-lg font-semibold">Practice Sheet Preview</h3>
         <p className="text-muted-foreground">
-          No alphabets defined for the selected language, or please select a language.
+          No characters available for the selected font, or please select a language/font.
         </p>
       </div>
     );
@@ -31,10 +82,14 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
   const cols = Math.min(PREFERRED_COLS, totalAlphabets);
   const rows = Math.ceil(totalAlphabets / cols);
 
-  const referenceCharScreenFontSize = language === 'ne' ? 12 : 10;
+  const referenceCharScreenFontSize = language === 'ne' ? 12 : 10; // Keep language-specific sizing
 
-  const languageName = SUPPORTED_LANGUAGES.find(lang => lang.value === language)?.label || language;
-  const sheetTitle = `${languageName} Alphabet Practice`;
+  // Use dynamicFontFamily if available, otherwise fallback or use a generic sans-serif
+  const currentFontFamilyToApply = dynamicFontFamily || 
+                                 (language === 'ne' && !dynamicFontFamily ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
+                                                    : "var(--font-geist-sans), sans-serif");
+  
+  const sheetTitle = `${fontName || language} Alphabet Practice`;
 
   return (
     <div className="printable-area bg-card text-card-foreground p-4 md:p-8 rounded-md shadow-lg">
@@ -51,15 +106,14 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
           }}
         >
           {Array.from({ length: rows * cols }).map((_, index) => {
-            const charToDisplay = alphabetsToDisplay[index] || ""; 
+            const charToDisplay = characters[index] || ""; 
             
             return (
               <div
                 key={index}
-                // Screen: Cell with solid border. Print: Overridden by globals.css for table-like cells.
                 className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1 border border-border" 
                 style={{
-                  minHeight: '60px', // Increased min height for screen readability/writability with inner box
+                  minHeight: '60px',
                 }}
               >
                 {charToDisplay && (
@@ -68,19 +122,17 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
                     style={{ 
                       fontSize: `${referenceCharScreenFontSize}px`,
                       lineHeight: `1`, 
-                      fontFamily: language === 'ne' ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" : "var(--font-geist-sans), sans-serif",
-                      marginBottom: '4px', // Small space between ref char and writing area on screen
+                      fontFamily: currentFontFamilyToApply,
+                      marginBottom: '4px',
                     }}
                   >
                     {charToDisplay}
                   </span>
                 )}
-                {/* This div will be the dotted box for writing, primarily styled for print */}
                 <div 
-                  className="writing-area-dotted w-full flex-grow border border-dashed border-gray-300" // Basic screen style for the dotted area
-                  style={{minHeight: '30px'}} // Minimum height for the writing area on screen
+                  className="writing-area-dotted w-full flex-grow border border-dashed border-gray-300"
+                  style={{minHeight: '30px'}} 
                 >
-                  {/* Content for writing area (e.g., guidelines) could go here if needed, but usually empty */}
                 </div>
               </div>
             );
@@ -90,4 +142,3 @@ export function PracticeSheetPreview({ config }: PracticeSheetPreviewProps) {
     </div>
   );
 }
-

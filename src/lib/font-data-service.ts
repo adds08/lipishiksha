@@ -1,3 +1,4 @@
+
 'use server';
 
 import fs from 'fs/promises';
@@ -103,6 +104,44 @@ export async function getSavedFontConfigurations(): Promise<SavedFontConfig[]> {
   // Ensure sorting by createdAt descending if not already handled by writeDb (it is, but good for consistency)
   return dbData.fonts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
+
+
+export interface LanguageFontInfo {
+  id: string; // language code, typically same as assignedLanguage
+  label: string; // language display name, potentially with font name
+  fontName: string;
+  characters: string[];
+  downloadURL: string;
+  assignedLanguage: string;
+}
+
+/**
+ * Fetches a list of unique languages and their associated font details for the generator.
+ * It picks the first font encountered for each unique language.
+ * @returns Promise resolving to an array of LanguageFontInfo.
+ */
+export async function getFontsForGenerator(): Promise<LanguageFontInfo[]> {
+  const dbData = await readDb();
+  const languageMap = new Map<string, LanguageFontInfo>();
+
+  // Sort by createdAt to prefer more recently added/updated fonts if multiple exist for a language
+  const sortedFonts = dbData.fonts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  for (const font of sortedFonts) {
+    if (!languageMap.has(font.assignedLanguage)) { 
+      languageMap.set(font.assignedLanguage, {
+        id: font.assignedLanguage, // Using language as ID for selection
+        label: `${font.assignedLanguage} (${font.name})`,
+        fontName: font.name,
+        characters: font.characters,
+        downloadURL: font.downloadURL,
+        assignedLanguage: font.assignedLanguage,
+      });
+    }
+  }
+  return Array.from(languageMap.values());
+}
+
 
 // Renaming from SavedFontConfigServer for consistency with the new local approach
 export type { SavedFontConfig as SavedFontConfigServer } from '@/lib/font-data-service';

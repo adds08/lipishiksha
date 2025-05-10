@@ -1,7 +1,7 @@
 
 "use client";
 
-import * as React from "react";
+import React, { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -21,8 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SUPPORTED_LANGUAGES } from "@/lib/constants";
-import type { PracticeSheetConfig } from "@/app/generator/page";
+import type { PracticeSheetConfig } from "@/app/generator/page"; // Will be updated
+
+// Define the structure for available languages more explicitly
+export interface AvailableLanguage {
+  value: string; // e.g., 'ne', 'en'
+  label: string; // e.g., 'Nepali (Preeti)', 'English (Arial)'
+}
 
 const formSchema = z.object({
   language: z.string().min(1, "Please select a language."),
@@ -33,9 +38,16 @@ type PracticeSheetFormValues = z.infer<typeof formSchema>;
 interface PracticeSheetGeneratorFormProps {
   onConfigChange: (config: PracticeSheetConfig) => void;
   defaultConfig: PracticeSheetConfig;
+  availableLanguages: AvailableLanguage[]; // Changed from SUPPORTED_LANGUAGES
+  isLoadingLanguages: boolean;
 }
 
-export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: PracticeSheetGeneratorFormProps) {
+export function PracticeSheetGeneratorForm({ 
+  onConfigChange, 
+  defaultConfig, 
+  availableLanguages,
+  isLoadingLanguages 
+}: PracticeSheetGeneratorFormProps) {
   const form = useForm<PracticeSheetFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -43,72 +55,67 @@ export function PracticeSheetGeneratorForm({ onConfigChange, defaultConfig }: Pr
     },
   });
 
-  React.useEffect(() => {
-    // Only reset the form's language field if defaultConfig.language
-    // is different from the current value in the form.
-    // This prevents an infinite loop where form.reset triggers form.watch,
-    // which calls onConfigChange, which updates defaultConfig, leading back here.
-    if (form.getValues("language") !== defaultConfig.language) {
+  // Effect to update form if defaultConfig.language changes (e.g., after languages load)
+  useEffect(() => {
+    if (defaultConfig.language && form.getValues("language") !== defaultConfig.language) {
       form.reset({ language: defaultConfig.language });
     }
-  }, [defaultConfig.language, form]); // form instance is stable, includes getValues and reset
+  }, [defaultConfig.language, form]);
 
-  React.useEffect(() => {
+  // Effect to subscribe to form changes and call onConfigChange
+  useEffect(() => {
     const subscription = form.watch((values) => {
       const parsedValues = formSchema.safeParse(values);
       if (parsedValues.success) {
-        onConfigChange(parsedValues.data as PracticeSheetConfig);
+        // Ensure that onConfigChange is called with the correct type.
+        // The PracticeSheetConfig now might just be { language: string }
+        onConfigChange({ language: parsedValues.data.language });
       }
     });
     return () => subscription.unsubscribe();
-  }, [form, onConfigChange]); // form instance and onConfigChange are stable
+  }, [form, onConfigChange]);
 
 
   return (
     <Form {...form}>
-      {/* The onSubmit on the form tag is not strictly necessary here if we only have one field 
-          and updates happen on change, but it's harmless. */}
-      <form onSubmit={form.handleSubmit(values => onConfigChange(values as PracticeSheetConfig))} className="space-y-6">
+      <form className="space-y-6"> {/* onSubmit removed as updates are via watch */}
         <FormField
           control={form.control}
           name="language"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Language</FormLabel>
+              <FormLabel>Language & Font</FormLabel>
               <Select
-                onValueChange={(value) => {
-                  field.onChange(value);
-                  // form.handleSubmit is not needed here for on-change updates
-                  // The form.watch effect handles calling onConfigChange
-                }}
-                defaultValue={field.value} // defaultValue should generally be used for uncontrolled or initial setup.
-                                          // For controlled components with react-hook-form, field.value is usually enough for SelectValue.
-                                          // However, SelectTrigger might need it for initial display if SelectValue isn't sufficient.
-                                          // Or use `value={field.value}` on Select component itself.
-                                          // Given the setup, defaultValue on Select and field.value for SelectValue should work.
+                onValueChange={field.onChange}
+                value={field.value} // Use value for controlled component
+                disabled={isLoadingLanguages || availableLanguages.length === 0}
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a language" />
+                    <SelectValue placeholder={isLoadingLanguages ? "Loading languages..." : "Select a language/font"} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {SUPPORTED_LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.value} value={lang.value}>
-                      {lang.label}
-                    </SelectItem>
-                  ))}
+                  {availableLanguages.length > 0 ? (
+                    availableLanguages.map((lang) => (
+                      <SelectItem key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    !isLoadingLanguages && <SelectItem value="no-fonts" disabled>No fonts available. Please upload fonts in Admin.</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               <FormDescription>
-                Choose the language to generate all its standard alphabets.
+                Choose a language and its associated font. The practice sheet will use characters from this font.
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        {/* No submit button is rendered as per previous changes, changes are instant via onConfigChange */}
       </form>
     </Form>
   );
 }
+
