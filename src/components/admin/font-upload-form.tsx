@@ -10,14 +10,6 @@ import * as opentype from 'opentype.js';
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// import { Label } from "@/components/ui/label"; // No longer explicitly used, FormLabel handles it
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -27,7 +19,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { SUPPORTED_LANGUAGES } from "@/lib/constants";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Save } from "lucide-react";
 
@@ -44,7 +35,7 @@ interface FontUploadFormProps {
 }
 
 const formSchema = z.object({
-  language: z.string().min(1, "Please select a language to associate with the font."),
+  language: z.string().min(2, "Language name/code is required (e.g., 'en', 'Nepali').").max(50, "Language name/code is too long."),
   // File itself is handled outside react-hook-form state, but validated before save
 });
 
@@ -64,7 +55,7 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
     },
   });
 
-  const currentLanguageValue = form.watch("language"); // Renamed to avoid conflict
+  const currentLanguageValue = form.watch("language");
 
   useEffect(() => {
     if (selectedFile && currentLanguageValue) {
@@ -102,7 +93,7 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
 
   const parseFont = async (file: File, language: string) => {
     if (!language) {
-      setParsingError("Language not selected. Cannot parse font.");
+      setParsingError("Language not entered. Cannot parse font.");
       onFontProcessed(null);
       setCurrentParsedDetails(null);
       return;
@@ -119,8 +110,6 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
       const characters: string[] = [];
       for (let i = 0; i < font.numGlyphs; i++) {
         const glyph = font.glyphs.get(i);
-        // Check for printable characters (Unicode value >= 32) or common whitespace
-        // (tab, newline, carriage return). Exclude control characters.
         if (glyph.unicode !== undefined) {
           const char = String.fromCharCode(glyph.unicode);
           if (glyph.unicode >= 32 || [9, 10, 13].includes(glyph.unicode)) {
@@ -158,16 +147,15 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
       setFileError("Please select a font file to save.");
       return;
     }
-    if (!currentLanguageValue) { // Use watched value
+    if (!currentLanguageValue) { 
       form.setError("language", { type: "manual", message: "Language is required to save." });
       return;
     }
     if (!currentParsedDetails) {
       setParsingError("Font data is not available or parsing failed. Cannot save.");
-      // Attempt to re-parse if language is set and file is selected, as a fallback.
       if(selectedFile && currentLanguageValue) {
         parseFont(selectedFile, currentLanguageValue).then(() => {
-           if(currentParsedDetails) { // Check if parsing succeeded this time
+           if(currentParsedDetails) { 
              onSaveConfiguration(currentParsedDetails, selectedFile);
            }
         });
@@ -177,7 +165,7 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
     
     const detailsToSave: ParsedFontDetails = {
         ...currentParsedDetails,
-        language: currentLanguageValue, // Ensure using the latest language from form
+        language: currentLanguageValue, 
         name: currentParsedDetails.name || selectedFile.name, 
     };
 
@@ -206,23 +194,12 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
           name="language"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Assign Language to Font</FormLabel> {/* Clarified Label */}
-              <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value || ""}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select language for this font" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {SUPPORTED_LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.value} value={lang.value}>
-                      {lang.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormLabel>Assign Language to Font</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Nepali or en" {...field} />
+              </FormControl>
               <FormDescription>
-                This language association will be stored with the font in the database.
+                Enter a language name (e.g., English, Nepali) or code (e.g., en, ne). This will be stored with the font.
               </FormDescription>
               <FormMessage />
             </FormItem>
