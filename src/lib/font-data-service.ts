@@ -3,9 +3,8 @@
 
 import type { ParsedFontDetails } from '@/components/admin/font-upload-form';
 import { saveFontLocally } from '@/lib/file-storage';
-import db from '@/lib/db'; // Knex instance
+import { query as executeQuery } from '@/lib/db'; // Renamed to avoid conflict
 import { v4 as uuidv4 } from 'uuid';
-
 
 // This interface describes data primarily for component consumption.
 export interface SavedFontConfig extends Omit<ParsedFontDetails, 'language' | 'characters'> {
@@ -19,17 +18,20 @@ export interface SavedFontConfig extends Omit<ParsedFontDetails, 'language' | 'c
   createdAt: Date;
 }
 
-// This type matches the database row more closely, before transformations.
+// This type represents the raw row from the database.
+// Field names should match database column names (typically snake_case or exact case if quoted in creation).
+// Assuming PostgreSQL column names are case-insensitive unless quoted during table creation.
+// If your table was created with quoted mixedCase names, use those here.
 interface FontConfigRow {
   id: string;
   name: string;
-  assignedLanguage: string;
+  assignedLanguage: string; // If column is "assignedLanguage"
   characters: string; // JSON string from DB
-  fileName: string;
-  fileSize: string | number | bigint; // Knex might return string for bigint
-  storagePath: string;
-  downloadURL: string;
-  createdAt: Date | string; // Knex might return string or Date
+  fileName: string; // If column is "fileName"
+  fileSize: string; // pg driver returns numbers as strings for bigint/numeric, needs conversion
+  storagePath: string; // If column is "storagePath"
+  downloadURL: string; // If column is "downloadURL"
+  createdAt: string | Date; // If column is "createdAt" (timestamp)
 }
 
 
@@ -46,25 +48,34 @@ export async function saveFontConfiguration(
 ): Promise<string> {
   const newFontId = uuidv4();
   
-  await db<FontConfigRow>('FontConfiguration').insert({
-    id: newFontId,
-    name: fontDetails.name,
-    assignedLanguage: fontDetails.language,
-    characters: JSON.stringify(fontDetails.characters),
-    fileName: fontFile.name,
-    fileSize: fontFile.size, // Store as number/bigint directly, Knex handles it for PostgreSQL
+  const sql = `
+    INSERT INTO "FontConfiguration" (id, name, "assignedLanguage", characters, "fileName", "fileSize", "storagePath", "downloadURL", "createdAt")
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  `;
+  const params = [
+    newFontId,
+    fontDetails.name,
+    fontDetails.language,
+    JSON.stringify(fontDetails.characters),
+    fontFile.name,
+    fontFile.size,
     storagePath,
     downloadURL,
-    createdAt: new Date(),
-  });
+    new Date(),
+  ];
   
+  await executeQuery(sql, params);
   return newFontId;
 }
 
 export async function getSavedFontConfigurations(): Promise<SavedFontConfig[]> {
-  const fontsFromDb = await db<FontConfigRow>('FontConfiguration')
-    .select('*')
-    .orderBy('createdAt', 'desc');
+  const sql = `
+    SELECT id, name, "assignedLanguage", characters, "fileName", "fileSize", "storagePath", "downloadURL", "createdAt"
+    FROM "FontConfiguration"
+    ORDER BY "createdAt" DESC
+  `;
+  const result = await executeQuery<FontConfigRow>(sql);
+  const fontsFromDb = result.rows;
 
   return fontsFromDb.map(font => ({
     id: font.id,
@@ -90,17 +101,19 @@ export interface LanguageFontInfo {
 
 export async function getFontsForGenerator(): Promise<LanguageFontInfo[]> {
   // Using PostgreSQL's DISTINCT ON for simplicity and efficiency
-  const result = await db.raw(`
+  // Ensure column names match exactly how they are in your DB (case-sensitive if quoted during creation)
+  const sql = `
     SELECT DISTINCT ON ("assignedLanguage")
     id, name, "assignedLanguage", characters, "fileName", "fileSize", "storagePath", "downloadURL", "createdAt"
     FROM "FontConfiguration"
     ORDER BY "assignedLanguage" ASC, "createdAt" DESC
-  `);
+  `;
   
+  const result = await executeQuery<FontConfigRow>(sql);
   const fontsFromDb: FontConfigRow[] = result.rows;
 
   return fontsFromDb.map(font => ({
-    id: font.assignedLanguage, // Use language code as ID for selection, or font.id if unique font instances are preferred
+    id: font.assignedLanguage, // Use language code as ID for selection
     label: `${font.assignedLanguage} (${font.name})`,
     fontName: font.name,
     characters: JSON.parse(font.characters),
