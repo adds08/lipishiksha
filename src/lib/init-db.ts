@@ -1,3 +1,4 @@
+
 import db from './db'; // Imports the initialized db from db.ts
 
 const createTableSql = `
@@ -15,39 +16,40 @@ CREATE TABLE IF NOT EXISTS "FontConfiguration" (
 `;
 
 function initializeDatabase() {
+  console.log('Running manual database initialization script...');
   db.serialize(() => {
-    db.run(createTableSql, (err) => {
+    db.exec(createTableSql, (err) => { // Using db.exec for CREATE TABLE IF NOT EXISTS
       if (err) {
-        console.error('Error creating FontConfiguration table:', err.message);
+        console.error('Error ensuring FontConfiguration table exists (manual script):', err.message);
         return;
       }
-      console.log('FontConfiguration table checked/created successfully.');
+      console.log('FontConfiguration table checked/created successfully (manual script).');
 
       // You could add initial data seeding here if needed
       // Example:
-      // const insertSql = 'INSERT INTO FontConfiguration (id, name, ...) VALUES (?, ?, ...)';
+      // const insertSql = 'INSERT INTO FontConfiguration (id, name, ...) VALUES ($1, $2, ...)';
       // db.run(insertSql, ['some-uuid', 'Default Font', ...]);
     });
 
     // Add any other tables or initial setup here
   });
+  console.log('Manual database initialization script finished.');
+  // Close the database connection if this script is truly standalone
+  // For now, assume it might be run while app is also trying to connect, so avoid explicit close.
+  // db.close((err) => {
+  //   if (err) {
+  //     console.error('Error closing database connection (manual script):', err.message);
+  //   } else {
+  //     console.log('Database connection closed after manual initialization.');
+  //   }
+  // });
 }
 
 // Run the initialization
-initializeDatabase();
+// This ensures the function is called when the script is executed.
+if (require.main === module) {
+  initializeDatabase();
+}
 
-// Close the database connection after setup (important for a script)
-// db.close((err) => {
-//   if (err) {
-//     console.error('Error closing database connection:', err.message);
-//   } else {
-//     console.log('Database connection closed after initialization.');
-//   }
-// });
-// Note: db.close() might be problematic if db.ts is also imported by the main app.
-// For a script, it's good practice. If run as part of app startup, manage connection lifecycle carefully.
-// The current db.ts handles process.on('SIGINT') for closing, which might be sufficient.
-// For a standalone script, explicitly closing is better. Given it's a script in package.json,
-// we can let it run and the process will exit. If it were imported during app boot, avoid closing here.
-// Let's remove the explicit close here to avoid conflicts if this script is run while the app is running or via tsx.
-// The console logs will indicate completion.
+// Export the function if it needs to be callable from elsewhere, though typically not for an init script.
+// export { initializeDatabase };

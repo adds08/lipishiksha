@@ -1,3 +1,4 @@
+
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import fs from 'fs';
@@ -13,8 +14,6 @@ if (!fs.existsSync(dataDir)) {
 const db = new sqlite3.Database(dbFilePath, (err) => {
   if (err) {
     console.error('Error opening SQLite database:', err.message);
-    // Potentially throw error or handle more gracefully depending on application needs
-    // For now, just logging. App might not function correctly if DB fails to open.
   } else {
     console.log(`Connected to SQLite database at ${dbFilePath}`);
     // Enable WAL mode for better concurrency and performance.
@@ -23,6 +22,28 @@ const db = new sqlite3.Database(dbFilePath, (err) => {
         console.error('Failed to enable WAL mode for SQLite:', walErr.message);
       } else {
         console.log('SQLite WAL mode enabled.');
+      }
+    });
+
+    // Create table if it doesn't exist
+    const createTableSql = `
+      CREATE TABLE IF NOT EXISTS "FontConfiguration" (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        "assignedLanguage" TEXT NOT NULL,
+        characters TEXT NOT NULL, -- Stores JSON string of characters
+        "fileName" TEXT NOT NULL,
+        "fileSize" INTEGER NOT NULL,
+        "storagePath" TEXT NOT NULL,
+        "downloadURL" TEXT NOT NULL,
+        "createdAt" TEXT NOT NULL -- Stores ISO8601 date string
+      );
+    `;
+    db.exec(createTableSql, (execErr) => {
+      if (execErr) {
+        console.error('Error creating FontConfiguration table on connect:', execErr.message);
+      } else {
+        console.log('FontConfiguration table checked/created successfully on connect.');
       }
     });
   }
