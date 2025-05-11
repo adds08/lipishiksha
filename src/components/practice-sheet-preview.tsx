@@ -109,7 +109,8 @@ export function PracticeSheetPreview({
 
           return (
             <div key={pageIndex} className="print-page-container bg-white">
-              <div className="print-page-header-qr-wrapper">
+              {/* Removed p-3 from here for print, relying on print CSS for padding/margin */}
+              <div className="print-page-header-qr-wrapper flex justify-between"> 
                 <div className="print-page-header">
                   <h2 className="text-lg font-semibold">Handwriting Practice: {fontName}</h2>
                   <p className="text-xs text-muted-foreground">
@@ -118,6 +119,7 @@ export function PracticeSheetPreview({
                 </div>
                 <div className="print-page-qr" data-ai-hint="qr code sheet">
                   <QRCodeCanvas
+                    key={`qr-${pageIndex}`} // Added explicit key
                     text={qrData} 
                     options={{
                       width: 60,
@@ -135,7 +137,7 @@ export function PracticeSheetPreview({
               
               {currentPageCharsCount > 0 ? (
                 <div
-                  className="printable-grid p-0 mt-2" 
+                  className="printable-grid p-0"  // Removed mt-2, print CSS handles margin
                   style={{
                     display: 'grid',
                     gridTemplateColumns: `repeat(${PREFERRED_COLS}, 1fr)`,
@@ -186,4 +188,3 @@ export function PracticeSheetPreview({
     </div>
   );
 }
-
