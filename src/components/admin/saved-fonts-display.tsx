@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -13,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { format } from 'date-fns';
 import { Eye } from "lucide-react";
 
@@ -35,6 +37,76 @@ interface SavedFontsDisplayProps {
   isLoading: boolean;
   error?: Error | null;
 }
+
+// Helper component to manage dynamic font loading for the dialog's character map
+function CharacterMapWithDynamicFont({ font }: { font: SavedFontDisplayData }) {
+  const [dynamicFontFamily, setDynamicFontFamily] = useState<string | null>(null);
+  const [fontStyleTag, setFontStyleTag] = useState<HTMLStyleElement | null>(null);
+
+  useEffect(() => {
+    // Cleanup previous font style tag if any
+    if (fontStyleTag && fontStyleTag.parentNode) {
+      fontStyleTag.parentNode.removeChild(fontStyleTag);
+      setFontStyleTag(null);
+    }
+    setDynamicFontFamily(null);
+
+    if (font.downloadURL && font.name) {
+      // Create a unique font-family name for this preview instance
+      const uniqueFontFamily = `DialogPreview_${font.name.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
+      
+      let fontFormat = '';
+      if (font.downloadURL.toLowerCase().endsWith('.otf')) fontFormat = 'opentype';
+      else if (font.downloadURL.toLowerCase().endsWith('.ttf')) fontFormat = 'truetype';
+
+      if (!fontFormat) {
+        console.warn("Could not determine font format for dialog preview from URL:", font.downloadURL);
+      }
+
+      const fontFaceRule = `
+        @font-face {
+          font-family: "${uniqueFontFamily}";
+          src: url("${font.downloadURL}") ${fontFormat ? `format("${fontFormat}")` : ''};
+        }
+      `;
+
+      const newStyleTag = document.createElement('style');
+      newStyleTag.textContent = fontFaceRule;
+      document.head.appendChild(newStyleTag);
+
+      setFontStyleTag(newStyleTag);
+      setDynamicFontFamily(uniqueFontFamily);
+    }
+
+    return () => {
+      // Cleanup when component unmounts or dependencies change
+      if (fontStyleTag && fontStyleTag.parentNode) {
+        fontStyleTag.parentNode.removeChild(fontStyleTag);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [font.downloadURL, font.name]); // Effect runs when these props change (i.e., different dialog opens)
+
+  const currentFontFamilyToApply = dynamicFontFamily || "var(--font-geist-sans), sans-serif"; // Fallback font
+  const fontSizeForDisplay = font.assignedLanguage.toLowerCase() === 'ne' || font.assignedLanguage.toLowerCase() === 'nepali' ? '1.15rem' : '1rem';
+
+
+  return (
+    <div>
+      <p className="text-sm font-medium leading-none mb-1">Character Map ({font.characters.length} chars):</p>
+      <ScrollArea className="h-[150px] w-full rounded-md border p-3 text-sm bg-muted/30">
+        {font.characters.length > 0 ? (
+          <p className="break-all" style={{ fontFamily: currentFontFamilyToApply, fontSize: fontSizeForDisplay }}>
+            {font.characters.join(' ')}
+          </p>
+        ) : (
+          <p className="text-muted-foreground">No characters found or extracted for this font.</p>
+        )}
+      </ScrollArea>
+    </div>
+  );
+}
+
 
 export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplayProps) {
   if (isLoading) {
@@ -117,21 +189,10 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4 py-4">
-                            <div>
-                              <p className="text-sm font-medium leading-none mb-1">Character Map ({font.characters.length} chars):</p>
-                              <ScrollArea className="h-[150px] w-full rounded-md border p-3 text-sm bg-muted/30">
-                                {font.characters.length > 0 ? (
-                                  <p className="break-all" style={{fontFamily: `Preview_${font.name.replace(/[^a-zA-Z0-9]/g, "_")}`}}>
-                                    {font.characters.join(' ')}
-                                  </p>
-                                ) : (
-                                  <p className="text-muted-foreground">No characters found or extracted for this font.</p>
-                                )}
-                              </ScrollArea>
-                            </div>
+                            <CharacterMapWithDynamicFont font={font} />
                             
                             <div>
-                               <p className="text-sm font-medium leading-none mb-1">Font File Path (Local Server):</p>
+                               <p className="text-sm font-medium leading-none mb-1">Font File Path (Server Storage):</p>
                                <code className="block text-xs font-mono bg-muted p-2 rounded overflow-x-auto">
                                  {font.storagePath}
                                </code>
@@ -150,9 +211,9 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
                             </div>
                           </div>
                           <DialogFooter>
-                            <DialogTrigger asChild>
+                            <DialogClose asChild>
                                <Button variant="outline">Close</Button>
-                            </DialogTrigger>
+                            </DialogClose>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -167,3 +228,4 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
     </Card>
   );
 }
+
