@@ -105,7 +105,7 @@ body {
   @media print {
     @page {
       size: A4 portrait;
-      margin: 10mm; /* Adjust margins as needed */
+      margin: 10mm; /* Overall page margins */
     }
 
     body {
@@ -119,59 +119,61 @@ body {
     }
     body * {
       visibility: hidden;
-      transform: none !important; 
+      transform: none !important;
       box-shadow: none !important;
-      border-color: #333 !important; /* Ensure borders are visible if needed */
+      border-color: #333 !important;
     }
 
     .printable-area, .printable-area * {
       visibility: visible;
     }
     .printable-area {
-      position: static !important; 
-      width: 100% !important; 
+      position: static !important;
+      width: 100% !important;
       height: auto !important;
       margin: 0 !important;
-      padding: 0 !important; 
+      padding: 0 !important;
       box-shadow: none !important;
       border: none !important;
-      background-color: white !important; 
+      background-color: white !important;
     }
 
     .print-page-container {
       visibility: visible;
       width: 100%;
-      height: auto; /* Let content define height, manage page breaks */
-      margin: 0 !important;
-      padding: 0 !important; 
+      height: auto; /* Let content define height */
+      margin: 0 !important; /* Container takes full available space within @page margins */
+      padding: 0 !important;
       page-break-after: always;
       background-color: white !important;
-      border: none !important; 
+      border: none !important;
       box-sizing: border-box;
     }
     .print-page-container:last-child {
       page-break-after: avoid;
     }
-    
+
     .print-page-header-qr-wrapper {
       display: flex !important;
       justify-content: space-between !important;
-      align-items: flex-start !important; 
-      margin: 0 0 0.5em 0 !important; /* Removed top margin, ensure bottom margin for spacing */
-      padding: 0 0 5mm 0 !important; 
-      box-sizing: border-box;
+      align-items: flex-start !important;
       width: 100%;
+      box-sizing: border-box;
+      margin: 0 0 2mm 0 !important; /* Reduced bottom margin to control space before grid */
+      padding: 0 !important; /* Removed padding, control spacing with margin */
     }
     .print-page-header {
       text-align: left !important;
       flex-grow: 1;
+      visibility: visible !important;
     }
     .print-page-header h2, .print-page-header p {
         margin-top: 0 !important;
-        margin-bottom: 0.2em !important;
+        margin-bottom: 0.2em !important; /* Small space between title and subtitle */
+        visibility: visible !important;
     }
     .print-page-header h2 {
-      font-size: 12pt !important; 
+      font-size: 12pt !important;
       color: black !important;
     }
     .print-page-header p {
@@ -181,14 +183,14 @@ body {
     .print-page-qr {
       text-align: right !important;
       flex-shrink: 0;
-      visibility: visible !important; /* Ensure QR container is visible */
+      visibility: visible !important;
     }
     .print-page-qr .qr-code-canvas {
-      width: 60px !important; 
-      height: 60px !important;
-      visibility: visible !important; 
+      width: 60px !important; /* Fixed size for QR */
+      height: 60px !important; /* Fixed size for QR */
+      visibility: visible !important;
     }
-    .print-page-qr .qr-code-canvas canvas {
+    .print-page-qr .qr-code-canvas canvas { /* Target the actual canvas */
       width: 100% !important;
       height: 100% !important;
       visibility: visible !important;
@@ -199,67 +201,70 @@ body {
       display: none !important;
     }
 
-    .printable-area .border.rounded-md.overflow-hidden, 
-    .printable-area div[data-radix-scroll-area-root] { 
+    /* Ensure ScrollArea components don't interfere with print layout */
+    .printable-area .border.rounded-md.overflow-hidden,
+    .printable-area div[data-radix-scroll-area-root] {
       height: auto !important;
       overflow: visible !important;
-      border: none !important; 
-      background-color: transparent !important; 
+      border: none !important;
+      background-color: transparent !important;
     }
-     .printable-area .h-\[60vh\], .printable-area .md\:h-\[70vh\] { 
+     .printable-area .h-\[60vh\], .printable-area .md\:h-\[70vh\] { /* Tailwind height classes */
         height: auto !important;
     }
-     .printable-area div[data-radix-scroll-area-viewport] { 
+     .printable-area div[data-radix-scroll-area-viewport] {
         height: auto !important;
         overflow: visible !important;
-        background-color: transparent !important; 
+        background-color: transparent !important;
      }
 
     .printable-grid {
       display: grid !important;
-      background-color: transparent !important; 
+      background-color: transparent !important;
       padding: 0 !important;
-      border: 1px solid #333 !important; 
-      gap: 0 !important;
-      width: 100% !important; 
-      margin-top: 0 !important; /* Ensure no top margin */
+      border: 1px solid #333 !important;
+      gap: 0 !important; /* No gap between cells, border acts as separator */
+      width: 100% !important;
+      margin-top: 0 !important; /* Grid starts immediately after header */
       box-sizing: border-box;
     }
     .printable-grid-cell {
-      border: 1px solid #333 !important; 
+      border: 1px solid #333 !important;
       page-break-inside: avoid !important;
-      background-color: white !important; 
+      background-color: white !important;
       display: flex !important;
       flex-direction: column !important;
-      align-items: flex-start !important; 
+      align-items: flex-start !important;
       justify-content: flex-start !important;
-      padding: 2mm 2.5mm !important; 
-      min-height: 20mm; 
+      padding: 2mm 2.5mm !important; /* Padding inside cell */
+      min-height: 20mm; /* Minimum height for cell */
       box-sizing: border-box;
     }
     .printable-grid-cell .reference-char {
-      color: #000 !important; 
-      font-size: 16pt !important; 
-      font-weight: 600 !important; 
-      line-height: 1 !important; 
-      margin-bottom: 3mm !important; 
-    }
-    
-    .printable-grid-cell .writing-area-dotted {
-      width: 100% !important;
-      flex-grow: 1 !important; 
-      border: 1px dotted #aaa !important; 
-      background-color: transparent !important; 
-      margin-top: 0 !important; 
-      visibility: visible !important; 
-      display: block !important; 
-      min-height: 12mm; 
+      color: #000 !important;
+      font-size: 16pt !important; /* Larger reference character */
+      font-weight: 600 !important;
+      line-height: 1 !important;
+      margin-bottom: 3mm !important; /* Space between ref char and writing area */
     }
 
+    .printable-grid-cell .writing-area-dotted {
+      width: 100% !important;
+      flex-grow: 1 !important; /* Takes remaining space in cell */
+      border: 1px dotted #aaa !important; /* Dotted box */
+      background-color: transparent !important;
+      margin-top: 0 !important;
+      visibility: visible !important;
+      display: block !important;
+      min-height: 12mm; /* Minimum height for writing area */
+    }
+
+    /* Hide scrollbars for print */
     .printable-area [role="scrollbar"],
-    .printable-area .scrollbar-thumb-class, 
+    .printable-area .scrollbar-thumb-class,
     .printable-area .scrollbar-track-class {
       display: none !important;
     }
   }
 }
+
