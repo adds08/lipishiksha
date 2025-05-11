@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import { ScrollArea } from "./ui/scroll-area";
 
 interface PracticeSheetPreviewProps {
-  language: string; // e.g. "ne", "en"
+  language: string; // e.g. "ne", "en" -> this is assignedLanguage from DB
   fontName: string; // e.g. "Preeti", "Arial"
   characters: string[];
   fontFileUrl: string | null;
@@ -40,7 +40,7 @@ export function PracticeSheetPreview({
       }
 
 
-      if (!fontFormat && fontFileUrl) { // Check fontFileUrl to avoid warning when it's legitimately null
+      if (!fontFormat && fontFileUrl) { 
         console.warn("Could not determine font format for preview from URL:", fontFileUrl);
       }
 
@@ -82,18 +82,23 @@ export function PracticeSheetPreview({
   const cols = Math.min(PREFERRED_COLS, totalAlphabets > 0 ? totalAlphabets : PREFERRED_COLS);
   const rows = totalAlphabets > 0 ? Math.ceil(totalAlphabets / cols) : 0;
   
-  const referenceCharScreenFontSize = language === 'ne' ? '18px' : '16px'; 
+  const referenceCharScreenFontSize = language.toLowerCase() === 'ne' || language.toLowerCase() === 'nepali' ? '18px' : '16px'; 
 
   const currentFontFamilyToApply = dynamicFontFamily || 
-                                 (language === 'ne' && !dynamicFontFamily ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
+                                 (language.toLowerCase() === 'ne' || language.toLowerCase() === 'nepali' && !dynamicFontFamily ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
                                                     : "var(--font-geist-sans), sans-serif");
   
-  const sheetTitle = `${fontName || language} Character Practice`;
-
   return (
     <div className="printable-area bg-card text-card-foreground p-4 md:p-6 rounded-md shadow-lg">
-      <h2 className="text-xl md:text-2xl font-semibold mb-1 text-center">{sheetTitle}</h2>
-      <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">Grid: {rows} rows x {cols} columns</p>
+      <h2 className="text-xl md:text-2xl font-semibold mb-1 text-center">Handwriting Practice Sheet</h2>
+      {fontName && (
+        <p className="text-lg md:text-xl text-muted-foreground mb-1 text-center">
+          Font: {fontName}
+        </p>
+      )}
+      <p className="text-xs md:text-sm text-muted-foreground mb-4 text-center">
+        Language: {language} | Grid: {rows} rows x {cols} columns
+      </p>
       
       <ScrollArea className="w-full h-[60vh] md:h-[70vh] border rounded-md bg-card"> 
         <div
@@ -110,7 +115,7 @@ export function PracticeSheetPreview({
             return (
               <div
                 key={index}
-                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-2 border border-border" // Screen padding p-2
+                className="printable-grid-cell bg-card flex flex-col items-start justify-start p-2 border border-border" 
                 style={{
                   minHeight: '70px', 
                 }}
@@ -120,7 +125,7 @@ export function PracticeSheetPreview({
                     className="reference-char text-muted-foreground select-none" 
                     style={{ 
                       fontSize: referenceCharScreenFontSize,
-                      fontWeight: 600, // semibold
+                      fontWeight: 600, 
                       lineHeight: `1`, 
                       fontFamily: currentFontFamilyToApply,
                       marginBottom: '4px', 
@@ -142,3 +147,4 @@ export function PracticeSheetPreview({
     </div>
   );
 }
+
