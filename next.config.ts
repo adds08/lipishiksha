@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    serverComponentsExternalPackages: ['knex', 'sqlite3'], // Added knex and sqlite3 here
+  },
 };
 
 export default nextConfig;
