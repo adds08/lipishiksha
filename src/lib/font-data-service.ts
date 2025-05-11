@@ -2,7 +2,7 @@
 
 import type { ParsedFontDetails } from '@/components/admin/font-upload-form';
 import { saveFontLocally } from '@/lib/file-storage';
-import { query as executeQuery } from '@/lib/db'; 
+import { query as executeSelectQuery, execute as executeModifyQuery } from '@/lib/db'; // Renamed for clarity
 import { v4 as uuidv4 } from 'uuid';
 
 // This interface describes data primarily for component consumption.
@@ -24,10 +24,10 @@ interface FontConfigRow {
   assignedLanguage: string; 
   characters: string; // JSON string from DB
   fileName: string; 
-  fileSize: string; // pg driver returns numbers as strings for bigint/numeric, needs conversion
+  fileSize: number; // SQLite stores as INTEGER, directly maps to number
   storagePath: string; 
   downloadURL: string; 
-  createdAt: string | Date; 
+  createdAt: string; // Stored as ISO8601 TEXT string
 }
 
 
@@ -48,6 +48,7 @@ export async function saveFontConfiguration(
     INSERT INTO "FontConfiguration" (id, name, "assignedLanguage", characters, "fileName", "fileSize", "storagePath", "downloadURL", "createdAt")
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
   `;
+  // SQLite uses $1, $2 placeholders for parameters in the sqlite3 Node.js library
   const params = [
     newFontId,
     fontDetails.name,
@@ -57,10 +58,10 @@ export async function saveFontConfiguration(
     fontFile.size,
     storagePath,
     downloadURL,
-    new Date(),
+    new Date().toISOString(), // Store as ISO string
   ];
   
-  await executeQuery(sql, params);
+  await executeModifyQuery(sql, params);
   return newFontId;
 }
 
@@ -70,19 +71,18 @@ export async function getSavedFontConfigurations(): Promise<SavedFontConfig[]> {
     FROM "FontConfiguration"
     ORDER BY "createdAt" DESC
   `;
-  const result = await executeQuery<FontConfigRow>(sql);
-  const fontsFromDb = result.rows;
+  const fontsFromDb = await executeSelectQuery<FontConfigRow>(sql);
 
   return fontsFromDb.map(font => ({
     id: font.id,
     name: font.name,
     assignedLanguage: font.assignedLanguage,
-    characters: JSON.parse(font.characters || '[]'), // Ensure characters is parsed, default to empty array if null/undefined
+    characters: JSON.parse(font.characters || '[]'), 
     fileName: font.fileName,
-    fileSize: Number(font.fileSize), 
+    fileSize: font.fileSize, // Directly a number from SQLite
     storagePath: font.storagePath,
     downloadURL: font.downloadURL,
-    createdAt: new Date(font.createdAt), 
+    createdAt: new Date(font.createdAt), // Parse ISO string back to Date
   }));
 }
 
@@ -96,21 +96,27 @@ export interface LanguageFontInfo {
 }
 
 export async function getFontsForGenerator(): Promise<LanguageFontInfo[]> {
+  // SQLite equivalent for selecting the latest font for each language.
+  // This query selects rows where createdAt is the maximum for that assignedLanguage.
   const sql = `
-    SELECT DISTINCT ON ("assignedLanguage")
-    id, name, "assignedLanguage", characters, "fileName", "fileSize", "storagePath", "downloadURL", "createdAt"
-    FROM "FontConfiguration"
-    ORDER BY "assignedLanguage" ASC, "createdAt" DESC
+    SELECT fc.id, fc.name, fc."assignedLanguage", fc.characters, fc."fileName", fc."fileSize", fc."storagePath", fc."downloadURL", fc."createdAt"
+    FROM "FontConfiguration" fc
+    INNER JOIN (
+        SELECT "assignedLanguage", MAX("createdAt") as max_created_at
+        FROM "FontConfiguration"
+        GROUP BY "assignedLanguage"
+    ) as latest_fonts
+    ON fc."assignedLanguage" = latest_fonts."assignedLanguage" AND fc."createdAt" = latest_fonts.max_created_at
+    ORDER BY fc."assignedLanguage" ASC;
   `;
   
-  const result = await executeQuery<FontConfigRow>(sql);
-  const fontsFromDb: FontConfigRow[] = result.rows;
+  const fontsFromDb = await executeSelectQuery<FontConfigRow>(sql);
 
   return fontsFromDb.map(font => ({
-    id: font.id, // Use the font configuration ID as the unique ID for selection
+    id: font.id, 
     label: `${font.assignedLanguage} (${font.name})`,
     fontName: font.name,
-    characters: JSON.parse(font.characters || '[]'), // Ensure characters is parsed
+    characters: JSON.parse(font.characters || '[]'), 
     downloadURL: font.downloadURL,
     assignedLanguage: font.assignedLanguage,
   }));

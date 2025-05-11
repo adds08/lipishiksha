@@ -1,70 +1,80 @@
+import sqlite3 from 'sqlite3';
+import path from 'path';
+import fs from 'fs';
 
-import { Pool } from 'pg';
-import dotenv from 'dotenv';
+const dataDir = path.join(process.cwd(), 'data');
+const dbFilePath = path.join(dataDir, 'lipi_shiksha.db');
 
-// Ensure .env is loaded.
-dotenv.config({ path: process.cwd() + '/.env' });
-
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error(
-    'DATABASE_URL is not defined in your .env file. This is required for PostgreSQL connections.'
-  );
+// Ensure data directory exists
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
 }
 
-// Log the database URL (excluding password for security in production logs) for debugging
-// Be cautious with logging sensitive information.
-const loggableDbUrl = databaseUrl.replace(/postgres:\/\/[^:]+:[^@]+@/, 'postgres://<user>:<password>@');
-console.log(`Attempting to connect to PostgreSQL with URL (sensitive parts redacted): ${loggableDbUrl}`);
-
-
-const pool = new Pool({
-  connectionString: databaseUrl,
-  // Example SSL configuration (often needed for cloud-hosted PostgreSQL)
-  // ssl: {
-  //   rejectUnauthorized: process.env.NODE_ENV === 'production', // Enforce SSL in production
-  //   // ca: fs.readFileSync('/path/to/server-ca.pem').toString(), // If you have a CA cert
-  // },
-  // You can configure pool options here, for example:
-  // max: 20, // maximum number of clients in the pool
-  // idleTimeoutMillis: 30000, // how long a client is allowed to remain idle before being closed
-  // connectionTimeoutMillis: 2000, // how long to wait for a client to connect
-});
-
-pool.on('connect', client => {
-  console.log('PostgreSQL client connected');
-});
-
-pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle PostgreSQL client', err);
-  // Depending on the error, you might want to gracefully shutdown or attempt to re-establish
-  // For now, exiting on critical pool errors might be too drastic for a web app.
-  // Consider more sophisticated error handling/logging.
+const db = new sqlite3.Database(dbFilePath, (err) => {
+  if (err) {
+    console.error('Error opening SQLite database:', err.message);
+    // Potentially throw error or handle more gracefully depending on application needs
+    // For now, just logging. App might not function correctly if DB fails to open.
+  } else {
+    console.log(`Connected to SQLite database at ${dbFilePath}`);
+    // Enable WAL mode for better concurrency and performance.
+    db.run('PRAGMA journal_mode = WAL;', (walErr) => {
+      if (walErr) {
+        console.error('Failed to enable WAL mode for SQLite:', walErr.message);
+      } else {
+        console.log('SQLite WAL mode enabled.');
+      }
+    });
+  }
 });
 
 /**
- * Executes a SQL query using a client from the connection pool.
- * @param text The SQL query string.
+ * Executes a SQL query that is expected to return rows (e.g., SELECT).
+ * @param sql The SQL query string.
  * @param params Optional array of parameters for parameterized queries.
- * @returns A Promise resolving to the query result.
+ * @returns A Promise resolving to an array of rows.
  */
-export async function query<T = any>(text: string, params?: any[]) {
-  const client = await pool.connect();
-  try {
-    const res = await client.query<T>(text, params);
-    return res;
-  } catch (err) {
-    console.error('Error executing query:', { 
-        sql: text, 
-        parameters: params, 
-        error: err instanceof Error ? err.message : String(err) 
+export function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows: T[]) => {
+      if (err) {
+        console.error('Error executing query (all):', { sql, params, error: err.message });
+        reject(err);
+      } else {
+        resolve(rows);
+      }
     });
-    throw err; // Re-throw the error to be handled by the caller
-  }
-  finally {
-    client.release();
-  }
+  });
 }
 
-export default pool;
+/**
+ * Executes a SQL query that modifies data (e.g., INSERT, UPDATE, DELETE).
+ * @param sql The SQL query string.
+ * @param params Optional array of parameters for parameterized queries.
+ * @returns A Promise resolving to an object with lastID and changes.
+ */
+export function execute(sql: string, params: any[] = []): Promise<{ lastID: number; changes: number }> {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (this: sqlite3.RunResult, err) {
+      if (err) {
+        console.error('Error executing statement (run):', { sql, params, error: err.message });
+        reject(err);
+      } else {
+        resolve({ lastID: this.lastID, changes: this.changes });
+      }
+    });
+  });
+}
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  db.close((err) => {
+    if (err) {
+      return console.error(err.message);
+    }
+    console.log('SQLite database connection closed.');
+    process.exit(0);
+  });
+});
+
+export default db; // Export the raw db instance if needed for transactions or specific methods
