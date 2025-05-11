@@ -1,24 +1,22 @@
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db" // Assuming SQLite database file is named dev.db in the prisma directory
+  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider      = "prisma-client-js"
-  // Explicitly list binary targets to increase chances of finding a compatible engine
-  // 'native' attempts to auto-detect. Adding specific Debian OpenSSL versions provides fallbacks.
-  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 model FontConfiguration {
-  id               String   @id @default(cuid())
-  name             String   // User-defined name or font family name
-  assignedLanguage String   // Language assigned by the admin (e.g., "Nepali", "English")
-  characters       String   // JSON string representation of the array of characters in the font
-  fileName         String   // Original name of the uploaded font file
-  fileSize         BigInt   // Size of the font file in bytes
-  storagePath      String   // Local file system path where the font file is stored
-  downloadURL      String   // Publicly accessible URL for the font file
-  createdAt        DateTime @default(now())
+  id               String    @id @default(cuid())
+  name             String
+  assignedLanguage String
+  characters       String // Storing as JSON string for simplicity, could be a separate model
+  fileName         String
+  fileSize         BigInt    // Using BigInt as file size can exceed standard Int
+  storagePath      String    // Local file system path or cloud storage identifier
+  downloadURL      String    // Publicly accessible URL for the font
+  createdAt        DateTime  @default(now())
 }
