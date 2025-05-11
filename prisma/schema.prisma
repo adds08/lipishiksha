@@ -1,22 +1,30 @@
-
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider      = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // The  `binaryTargets` option is needed for deploying to Vercel.
+  // It should be a list of strings, each string being a valid platform.
+  // Example: `binaryTargets = ["native", "debian-openssl-1.1.x"]`
+  // See https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#core-features
   binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql" // Changed from sqlite
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model FontConfiguration {
   id               String    @id @default(cuid())
   name             String
   assignedLanguage String
-  characters       String // Storing as JSON string for simplicity, could be a separate model
+  characters       String // Stored as JSON string, consider using Json type if your DB supports it well
   fileName         String
-  fileSize         BigInt    // Using BigInt as file size can exceed standard Int
-  storagePath      String    // Local file system path or cloud storage identifier
-  downloadURL      String    // Publicly accessible URL for the font
+  fileSize         BigInt // Use BigInt for file size
+  storagePath      String // Local file system path or cloud storage path/key
+  downloadURL      String // Publicly accessible URL for the font
   createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
