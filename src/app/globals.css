@@ -105,7 +105,10 @@ body {
   @media print {
     @page {
       size: A4 portrait;
-      margin: 10mm; /* Overall page margins */
+      margin-top: 0mm; /* Removed top margin */
+      margin-right: 10mm;
+      margin-bottom: 10mm;
+      margin-left: 10mm;
     }
 
     body {
