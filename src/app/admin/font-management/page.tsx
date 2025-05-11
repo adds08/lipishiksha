@@ -9,7 +9,7 @@ import { SavedFontsDisplay, type SavedFontDisplayData } from "@/components/admin
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { getSavedFontConfigurations, saveFontConfiguration, uploadFontFile, type SavedFontConfigServer } from "@/lib/font-data-service";
+import { getSavedFontConfigurations, saveFontConfiguration, uploadFontFile, type SavedFontConfig } from "@/lib/font-data-service";
 import { Loader2 } from "lucide-react";
 
 // Create a client
@@ -20,19 +20,17 @@ function FontManagementPageContent() {
   const [currentFontFileForPreview, setCurrentFontFileForPreview] = useState<File | null>(null);
   const { toast } = useToast();
 
-  // SavedFontConfigServer is the type from the service, which now comes from Prisma
-  // SavedFontDisplayData is the type the SavedFontsDisplay component expects
-  const { data: savedFontsData, isLoading: isLoadingFonts, error: fontsError, refetch: refetchFonts } = useQuery<SavedFontConfigServer[], Error, SavedFontDisplayData[]>({
+  const { data: savedFontsData, isLoading: isLoadingFonts, error: fontsError, refetch: refetchFonts } = useQuery<SavedFontConfig[], Error, SavedFontDisplayData[]>({
     queryKey: ['savedFonts'],
-    queryFn: getSavedFontConfigurations,
-    select: (data: SavedFontConfigServer[]) => data.map(font => ({
+    queryFn: getSavedFontConfigurations, // Uses Knex now
+    select: (data: SavedFontConfig[]) => data.map(font => ({
       id: font.id,
       name: font.name,
       assignedLanguage: font.assignedLanguage,
       fileName: font.fileName,
       fileSize: font.fileSize, // Already a number after service layer transformation
       characterCount: font.characters.length,
-      createdAt: font.createdAt, // Already a Date object from Prisma
+      createdAt: font.createdAt, // Already a Date object from service layer
       characters: font.characters,
       storagePath: font.storagePath,
       downloadURL: font.downloadURL,
@@ -41,16 +39,14 @@ function FontManagementPageContent() {
 
   const saveFontMutation = useMutation({
     mutationFn: async ({ details, fontFile }: { details: ParsedFontDetails, fontFile: File }) => {
-      const existingFont = savedFontsData?.find(f => f.name === details.name && f.assignedLanguage === details.language);
-      if (existingFont) {
-        // Allowing multiple fonts with same name/language but this check might be useful for some scenarios.
-        // For now, we allow it as different files might be uploaded.
-        // throw new Error(`A font named "${details.name}" for language "${details.language}" is already saved.`);
-      }
+      // Optional: Check for existing font name/language combination if needed.
+      // const existingFont = savedFontsData?.find(f => f.name === details.name && f.assignedLanguage === details.language);
+      // if (existingFont) {
+      //   throw new Error(`A font named "${details.name}" for language "${details.language}" is already saved.`);
+      // }
       
-      const { storagePath, downloadURL } = await uploadFontFile(fontFile); // This saves the physical file
-      // Now save metadata to Prisma
-      const newFontId = await saveFontConfiguration(details, fontFile, storagePath, downloadURL);
+      const { storagePath, downloadURL } = await uploadFontFile(fontFile);
+      const newFontId = await saveFontConfiguration(details, fontFile, storagePath, downloadURL); // Uses Knex now
       return { newFontId, name: details.name, language: details.language };
     },
     onSuccess: (data) => {
@@ -59,7 +55,7 @@ function FontManagementPageContent() {
         description: `"${data.name}" for ${data.language} has been saved to the database.`,
         variant: "default",
       });
-      refetchFonts(); // Refetch the list of fonts
+      refetchFonts(); 
       setCurrentFontForPreview(null);
       setCurrentFontFileForPreview(null);
     },
@@ -87,7 +83,7 @@ function FontManagementPageContent() {
       <header className="space-y-2">
         <h2 className="text-2xl font-bold tracking-tight">Font Management</h2>
         <p className="text-muted-foreground">
-          Upload OpenType Font (OTF) files, assign a language, preview characters, and save configurations to the SQLite database.
+          Upload OpenType Font (OTF) files, assign a language, preview characters, and save configurations to the database.
         </p>
       </header>
 
