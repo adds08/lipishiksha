@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -34,7 +33,7 @@ export function FontCharacterPreview({ fontName, language, characters, fontFile 
 
     if (fontFile && fontName) {
       const objectURL = URL.createObjectURL(fontFile);
-      // Create a unique font-family name for this preview instance to avoid collisions
+      // Create a unique font-family name for this preview instance
       const uniqueFontFamily = `Preview_${fontName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
       
       const fontFormat = fontFile.type === 'font/otf' ? 'opentype' :
@@ -43,38 +42,37 @@ export function FontCharacterPreview({ fontName, language, characters, fontFile 
                          fontFile.name.toLowerCase().endsWith('.ttf') ? 'truetype' : '';
 
       if (!fontFormat) {
-        console.warn("Could not determine font format for preview.");
+        console.warn("Could not determine font format for preview. File type:", fontFile.type, "File name:", fontFile.name);
         URL.revokeObjectURL(objectURL);
         return;
       }
 
       const fontFaceRule = `
         @font-face {
-          font-family: "${uniqueFontFamily}";
+          font-family: "${uniqueFontFamily}"; /* Quoted font family name */
           src: url("${objectURL}") format("${fontFormat}");
         }
       `;
 
-      const styleTag = document.createElement('style');
-      styleTag.textContent = fontFaceRule;
-      document.head.appendChild(styleTag);
+      const styleTagElement = document.createElement('style');
+      styleTagElement.textContent = fontFaceRule;
+      document.head.appendChild(styleTagElement);
 
       setFontObjectUrl(objectURL);
-      setFontStyleTag(styleTag);
+      setFontStyleTag(styleTagElement);
       setDynamicFontFamily(uniqueFontFamily);
     }
 
     return () => {
-      // This cleanup runs when the component unmounts or dependencies change before effect runs again
-      if (fontObjectUrl) { // Check state variable at the time of cleanup closure
+      if (fontObjectUrl) { 
         URL.revokeObjectURL(fontObjectUrl);
       }
       if (fontStyleTag && fontStyleTag.parentNode) {
         fontStyleTag.parentNode.removeChild(fontStyleTag);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fontFile, fontName]); // fontName is part of the unique name generation
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fontFile, fontName]); 
 
   const totalCharacters = characters.length;
 
@@ -96,9 +94,12 @@ export function FontCharacterPreview({ fontName, language, characters, fontFile 
   const cols = Math.min(PREFERRED_COLS, totalCharacters > 0 ? totalCharacters : PREFERRED_COLS);
   const rows = totalCharacters > 0 ? Math.ceil(totalCharacters / cols) : 1;
 
-  const currentFontFamilyToApply = dynamicFontFamily || 
-                                 (language === 'ne' ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
-                                                    : "var(--font-geist-sans), sans-serif");
+  const currentFontFamilyToApply = dynamicFontFamily 
+                                 ? `"${dynamicFontFamily}"` /* Quote if dynamic */
+                                 : (language.toLowerCase() === 'ne' || language.toLowerCase() === 'nepali' ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
+                                                                      : "var(--font-geist-sans), sans-serif");
+  const fontSizeForDisplay = language.toLowerCase() === 'ne' || language.toLowerCase() === 'nepali' ? '1.25rem' : '1.1rem';
+
 
   return (
     <Card className="shadow-lg">
@@ -109,7 +110,8 @@ export function FontCharacterPreview({ fontName, language, characters, fontFile 
         </div>
         <CardDescription>
           Displaying {totalCharacters > 0 ? `${totalCharacters} unique printable characters` : "no characters (or error during parsing)"} found in the font for language: {language}.
-          {dynamicFontFamily && <span className="block text-xs"> (Previewing with uploaded font)</span>}
+          {dynamicFontFamily && <span className="block text-xs"> (Previewing with uploaded font: {dynamicFontFamily})</span>}
+          {!dynamicFontFamily && fontFile && fontName && <span className="block text-xs text-destructive">(Uploaded font preview failed to load, showing fallback)</span>}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -129,7 +131,7 @@ export function FontCharacterPreview({ fontName, language, characters, fontFile 
                   title={`Char: ${char} (U+${char.charCodeAt(0).toString(16).toUpperCase()})`}
                   style={{
                     fontFamily: currentFontFamilyToApply,
-                    fontSize: language === 'ne' ? '1.25rem' : '1.1rem',
+                    fontSize: fontSizeForDisplay,
                   }}
                 >
                   {char}
