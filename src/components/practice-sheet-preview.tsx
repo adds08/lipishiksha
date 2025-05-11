@@ -33,8 +33,12 @@ export function PracticeSheetPreview({
       const uniqueFontFamily = `GenSheet_${fontName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
       
       let fontFormat = '';
-      if (fontFileUrl.toLowerCase().endsWith('.otf')) fontFormat = 'opentype';
-      else if (fontFileUrl.toLowerCase().endsWith('.ttf')) fontFormat = 'truetype';
+      if (fontFileUrl.toLowerCase().endsWith('.otf')) {
+        fontFormat = 'opentype';
+      } else if (fontFileUrl.toLowerCase().endsWith('.ttf')) {
+        fontFormat = 'truetype';
+      }
+
 
       if (!fontFormat && fontFileUrl) { // Check fontFileUrl to avoid warning when it's legitimately null
         console.warn("Could not determine font format for preview from URL:", fontFileUrl);

@@ -61,8 +61,12 @@ function CharacterMapWithDynamicFont({ font }: { font: SavedFontDisplayData }) {
       const uniqueFontFamily = `DialogPreview_${font.name.replace(/[^a-zA-Z0-9]/g, "_")}_${font.id.substring(0, 8)}`;
       
       let fontFormat = '';
-      if (font.downloadURL.toLowerCase().endsWith('.otf')) fontFormat = 'opentype';
-      else if (font.downloadURL.toLowerCase().endsWith('.ttf')) fontFormat = 'truetype';
+      if (font.downloadURL.toLowerCase().endsWith('.otf')) {
+        fontFormat = 'opentype';
+      } else if (font.downloadURL.toLowerCase().endsWith('.ttf')) {
+        fontFormat = 'truetype';
+      }
+
 
       if (!fontFormat) {
         const errorMsg = `Could not determine font format for dialog preview from URL: ${font.downloadURL}`;

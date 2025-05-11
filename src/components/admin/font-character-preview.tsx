@@ -37,10 +37,13 @@ export function FontCharacterPreview({ fontName, language, characters, fontFile 
       // Create a unique font-family name for this preview instance
       const uniqueFontFamily = `Preview_${fontName.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
       
-      const fontFormat = fontFile.type === 'font/otf' ? 'opentype' :
-                         fontFile.type === 'font/ttf' ? 'truetype' :
-                         fontFile.name.toLowerCase().endsWith('.otf') ? 'opentype' : 
-                         fontFile.name.toLowerCase().endsWith('.ttf') ? 'truetype' : '';
+      let fontFormat = '';
+      if (fontFile.type === 'font/otf' || fontFile.name.toLowerCase().endsWith('.otf')) {
+        fontFormat = 'opentype';
+      } else if (fontFile.type === 'font/ttf' || fontFile.type === 'application/x-font-truetype' || fontFile.name.toLowerCase().endsWith('.ttf')) {
+        fontFormat = 'truetype';
+      }
+
 
       if (!fontFormat) {
         console.warn("Could not determine font format for preview. File type:", fontFile.type, "File name:", fontFile.name);

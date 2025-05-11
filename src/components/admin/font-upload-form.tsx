@@ -73,8 +73,11 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
     onFontProcessed(null, null); // Pass null for file as well
 
     if (file) {
-      if (file.type !== "font/otf" && !file.name.toLowerCase().endsWith(".otf")) {
-        setFileError("Invalid file type. Please upload an OTF (.otf) font file.");
+      const isOTF = file.type === "font/otf" || file.name.toLowerCase().endsWith(".otf");
+      const isTTF = file.type === "font/ttf" || file.type === "application/x-font-truetype" || file.name.toLowerCase().endsWith(".ttf");
+
+      if (!isOTF && !isTTF) {
+        setFileError("Invalid file type. Please upload an OTF (.otf) or TTF (.ttf) font file.");
         setSelectedFile(null);
         event.target.value = ""; 
         return;
@@ -135,7 +138,7 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
     } catch (e) {
       console.error("Font parsing error:", e);
       const errorMsg = e instanceof Error ? e.message : String(e);
-      setParsingError(`Failed to parse font: ${errorMsg}. Ensure it's a valid OTF file.`);
+      setParsingError(`Failed to parse font: ${errorMsg}. Ensure it's a valid OTF or TTF file.`);
       onFontProcessed(null, file); // Pass file even on error
       setCurrentParsedDetails(null);
     }
@@ -183,16 +186,16 @@ export function FontUploadForm({ onFontProcessed, onSaveConfiguration, isSaving 
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormItem>
-          <FormLabel htmlFor="font-file-upload">Font File (.otf)</FormLabel>
+          <FormLabel htmlFor="font-file-upload">Font File (.otf, .ttf)</FormLabel>
           <Input
             id="font-file-upload"
             type="file"
-            accept=".otf,font/otf"
+            accept=".otf,font/otf,.ttf,font/ttf,application/x-font-truetype"
             onChange={handleFileChange}
             className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
           />
           {fileError && <FormMessage>{fileError}</FormMessage>}
-          <FormDescription>Upload an OpenType Font file. The character set will be previewed.</FormDescription>
+          <FormDescription>Upload an OpenType (OTF) or TrueType (TTF) Font file. The character set will be previewed.</FormDescription>
         </FormItem>
 
         <FormField
