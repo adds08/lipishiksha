@@ -23,13 +23,13 @@ function GeneratorPageContent() {
 
   const { data: availableFontsData, isLoading: isLoadingFonts, error: fontsError } = useQuery<LanguageFontInfo[], Error>({
     queryKey: ['fontsForGenerator'],
-    queryFn: getFontsForGenerator, // This now uses SQLite
+    queryFn: getFontsForGenerator, 
   });
 
   useEffect(() => {
     if (availableFontsData && availableFontsData.length > 0 && !config.language) {
       const firstFont = availableFontsData[0];
-      setConfig({ language: firstFont.id });
+      setConfig({ language: firstFont.id }); // language in config is the font ID
       setSelectedFontDetails(firstFont);
     } else if (availableFontsData && config.language) {
       const currentSelected = availableFontsData.find(f => f.id === config.language);
@@ -41,7 +41,7 @@ function GeneratorPageContent() {
   const handleConfigChange = (newConfig: PracticeSheetConfig) => {
     setConfig(newConfig);
     if (availableFontsData) {
-      const newSelectedFont = availableFontsData.find(f => f.id === newConfig.language);
+      const newSelectedFont = availableFontsData.find(f => f.id === newConfig.language); // language is font ID
       setSelectedFontDetails(newSelectedFont || null);
     }
   };
@@ -51,7 +51,7 @@ function GeneratorPageContent() {
   };
 
   const formLanguages: AvailableLanguage[] = availableFontsData
-    ? availableFontsData.map(f => ({ value: f.id, label: f.label }))
+    ? availableFontsData.map(f => ({ value: f.id, label: f.label })) // value is font ID
     : [];
 
   return (
@@ -101,6 +101,7 @@ function GeneratorPageContent() {
              {selectedFontDetails ? (
                 <PracticeSheetPreview 
                   language={selectedFontDetails.assignedLanguage} 
+                  fontId={selectedFontDetails.id} // Pass fontId
                   fontName={selectedFontDetails.fontName}
                   characters={selectedFontDetails.characters}
                   fontFileUrl={selectedFontDetails.downloadURL}
@@ -109,6 +110,7 @@ function GeneratorPageContent() {
               <Card className="shadow-lg">
                 <CardHeader>
                   <CardTitle>Practice Sheet Preview</CardTitle>
+                   {selectedFontDetails && <CardDescription>Font: {selectedFontDetails.fontName}</CardDescription>}
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground">

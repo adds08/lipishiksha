@@ -171,10 +171,17 @@ body {
     .print-page-qr {
       text-align: right !important;
     }
-    .print-page-qr img {
-      width: 60px !important; /* Adjust as needed */
+    /* Styles for the canvas QR code */
+    .print-page-qr .qr-code-canvas {
+      width: 60px !important; 
       height: 60px !important;
+      visibility: visible !important; /* Ensure canvas itself is visible */
     }
+    .print-page-qr .qr-code-canvas canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
 
     .no-print {
       display: none !important;

@@ -3,22 +3,22 @@
 
 import React, { useEffect, useState } from "react";
 import { ScrollArea } from "./ui/scroll-area";
-import Image from "next/image";
+import { QRCodeCanvas } from 'qrcode.react'; // Import QRCodeCanvas
 
 interface PracticeSheetPreviewProps {
   language: string;
+  fontId: string; // Add fontId to props
   fontName: string;
   characters: string[];
   fontFileUrl: string | null;
 }
 
 const PREFERRED_COLS = 8;
-// Estimate based on 8 cols, and aiming for ~10-12 rows per A4 page.
-// (8 cols * 10 rows = 80 chars). This is a rough guide.
 const CHARS_PER_PAGE_ESTIMATE = 80; 
 
 export function PracticeSheetPreview({ 
   language, 
+  fontId, // Destructure fontId
   fontName, 
   characters, 
   fontFileUrl 
@@ -27,7 +27,6 @@ export function PracticeSheetPreview({
   const [fontStyleTag, setFontStyleTag] = useState<HTMLStyleElement | null>(null);
 
   useEffect(() => {
-    // Cleanup previous font style tag
     if (fontStyleTag && fontStyleTag.parentNode) {
       fontStyleTag.parentNode.removeChild(fontStyleTag);
       setFontStyleTag(null);
@@ -96,7 +95,7 @@ export function PracticeSheetPreview({
                                  (language.toLowerCase() === 'ne' || language.toLowerCase() === 'nepali' && !dynamicFontFamily ? "'Noto Sans Devanagari', var(--font-geist-sans), sans-serif" 
                                                     : "var(--font-geist-sans), sans-serif");
   
-  const referenceCharScreenFontSize = language.toLowerCase() === 'ne' || language.toLowerCase() === 'nepali' ? '18px' : '16px'; 
+  const referenceCharScreenFontSize = language.toLowerCase() === 'ne' || language.toLowerCase() === 'nepali' ? '24px' : '22px'; 
 
   return (
     <div className="printable-area bg-card text-card-foreground p-0 md:p-2 rounded-md shadow-lg">
@@ -104,10 +103,11 @@ export function PracticeSheetPreview({
         {pagesOfCharacters.map((pageChars, pageIndex) => {
           const currentPageCharsCount = pageChars.length;
           const rowsOnThisPage = currentPageCharsCount > 0 ? Math.ceil(currentPageCharsCount / PREFERRED_COLS) : 0;
-          const qrData = `Page: ${pageIndex + 1}/${totalPages} | Language: ${language} | Font: ${fontName}`;
+          // Include fontId in QR data
+          const qrData = `FontID: ${fontId} | Page: ${pageIndex + 1}/${totalPages} | Language: ${language} | Font: ${fontName}`;
 
           return (
-            <div key={pageIndex} className="print-page-container bg-white"> {/* Ensure white background for print page */}
+            <div key={pageIndex} className="print-page-container bg-white">
               <div className="print-page-header-qr-wrapper">
                 <div className="print-page-header">
                   <h2 className="text-lg font-semibold">Handwriting Practice: {fontName}</h2>
@@ -116,11 +116,18 @@ export function PracticeSheetPreview({
                   </p>
                 </div>
                 <div className="print-page-qr">
-                  <Image 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(qrData)}`} 
-                    alt={`QR Code for Page ${pageIndex + 1}`} 
-                    width={60} 
-                    height={60} 
+                  <QRCodeCanvas 
+                    value={qrData} 
+                    size={60} 
+                    level="Q" // Error correction level
+                    imageSettings={{ // Make sure the QR code itself is black on white for print
+                      src: '', // No image overlay
+                      excavate: false,
+                    }}
+                    // Ensure canvas itself is styled for printing if needed, though default should be fine
+                    // For printing, ensure the canvas renders as black on white.
+                    // The `fgColor` and `bgColor` props default to black and white respectively.
+                    className="qr-code-canvas" // Add a class if specific print styles are needed for the canvas
                     data-ai-hint="qr code sheet"
                   />
                 </div>
@@ -132,10 +139,9 @@ export function PracticeSheetPreview({
                   style={{
                     display: 'grid',
                     gridTemplateColumns: `repeat(${PREFERRED_COLS}, 1fr)`,
-                    gridAutoRows: `minmax(60px, auto))`, // Adjusted min height for cell
+                    gridAutoRows: `minmax(70px, auto))`, 
                   }}
                 >
-                  {/* Ensure we only map over enough cells for characters on this page */}
                   {Array.from({ length: rowsOnThisPage * PREFERRED_COLS }).map((_, cellIndex) => {
                     const charToDisplay = pageChars[cellIndex] || ""; 
                     
@@ -144,7 +150,7 @@ export function PracticeSheetPreview({
                         key={cellIndex}
                         className="printable-grid-cell bg-card flex flex-col items-start justify-start p-1.5 border border-border" 
                         style={{
-                          minHeight: '60px', 
+                          minHeight: '70px', 
                         }}
                       >
                         {charToDisplay && (
