@@ -3,11 +3,11 @@
 
 import React, { useEffect, useState } from "react";
 import { ScrollArea } from "./ui/scroll-area";
-import { QRCodeCanvas } from 'qrcode.react'; // Import QRCodeCanvas
+import { useQRCode } from 'next-qrcode'; 
 
 interface PracticeSheetPreviewProps {
   language: string;
-  fontId: string; // Add fontId to props
+  fontId: string; 
   fontName: string;
   characters: string[];
   fontFileUrl: string | null;
@@ -18,13 +18,15 @@ const CHARS_PER_PAGE_ESTIMATE = 80;
 
 export function PracticeSheetPreview({ 
   language, 
-  fontId, // Destructure fontId
+  fontId, 
   fontName, 
   characters, 
   fontFileUrl 
 }: PracticeSheetPreviewProps) {
   const [dynamicFontFamily, setDynamicFontFamily] = useState<string | null>(null);
   const [fontStyleTag, setFontStyleTag] = useState<HTMLStyleElement | null>(null);
+  const { Canvas: QRCodeCanvas } = useQRCode();
+
 
   useEffect(() => {
     if (fontStyleTag && fontStyleTag.parentNode) {
@@ -103,7 +105,6 @@ export function PracticeSheetPreview({
         {pagesOfCharacters.map((pageChars, pageIndex) => {
           const currentPageCharsCount = pageChars.length;
           const rowsOnThisPage = currentPageCharsCount > 0 ? Math.ceil(currentPageCharsCount / PREFERRED_COLS) : 0;
-          // Include fontId in QR data
           const qrData = `FontID: ${fontId} | Page: ${pageIndex + 1}/${totalPages} | Language: ${language} | Font: ${fontName}`;
 
           return (
@@ -115,20 +116,19 @@ export function PracticeSheetPreview({
                     Language: {language} | Page {pageIndex + 1} of {totalPages}
                   </p>
                 </div>
-                <div className="print-page-qr">
-                  <QRCodeCanvas 
-                    value={qrData} 
-                    size={60} 
-                    level="Q" // Error correction level
-                    imageSettings={{ // Make sure the QR code itself is black on white for print
-                      src: '', // No image overlay
-                      excavate: false,
+                <div className="print-page-qr" data-ai-hint="qr code sheet">
+                  <QRCodeCanvas
+                    text={qrData} 
+                    options={{
+                      width: 60,
+                      level: 'Q', 
+                      margin: 1,
+                      color: {
+                        dark: '#000000',
+                        light: '#FFFFFF',
+                      },
                     }}
-                    // Ensure canvas itself is styled for printing if needed, though default should be fine
-                    // For printing, ensure the canvas renders as black on white.
-                    // The `fgColor` and `bgColor` props default to black and white respectively.
-                    className="qr-code-canvas" // Add a class if specific print styles are needed for the canvas
-                    data-ai-hint="qr code sheet"
+                    className="qr-code-canvas" 
                   />
                 </div>
               </div>
@@ -186,3 +186,4 @@ export function PracticeSheetPreview({
     </div>
   );
 }
+
