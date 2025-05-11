@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -9,7 +8,7 @@ import { SavedFontsDisplay, type SavedFontDisplayData } from "@/components/admin
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { getSavedFontConfigurations, saveFontConfiguration, uploadFontFile, type SavedFontConfigServer } from "@/lib/font-data-service"; // Updated import
+import { getSavedFontConfigurations, saveFontConfiguration, uploadFontFile, type SavedFontConfigServer } from "@/lib/font-data-service";
 import { Loader2 } from "lucide-react";
 
 // Create a client
@@ -30,8 +29,10 @@ function FontManagementPageContent() {
       fileName: font.fileName,
       fileSize: font.fileSize,
       characterCount: font.characters.length,
-      // createdAt can be a string (ISO date) from the JSON store
       createdAt: font.createdAt ? new Date(font.createdAt) : undefined, 
+      characters: font.characters, // Pass the full character array
+      storagePath: font.storagePath, // Pass the storage path
+      downloadURL: font.downloadURL, // Pass the download URL
     })),
   });
 
@@ -42,7 +43,6 @@ function FontManagementPageContent() {
         throw new Error(`A font named "${details.name}" for language "${details.language}" is already saved.`);
       }
       
-      // uploadFontFile now handles local saving and returns paths/URLs
       const { storagePath, downloadURL } = await uploadFontFile(fontFile);
       const newFontId = await saveFontConfiguration(details, fontFile, storagePath, downloadURL);
       return { newFontId, name: details.name, language: details.language };
