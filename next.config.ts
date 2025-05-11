@@ -30,27 +30,25 @@ const nextConfig: NextConfig = {
         'tedious', // for mssql
       ];
 
-      // Ensure config.externals is an array to begin with
-      if (!Array.isArray(config.externals)) {
-        config.externals = [];
-      }
-      
-      // Prepend a function to handle unwanted dialects
-      // This allows existing externals (if any, including functions) to be processed
-      // if our function doesn't handle the request.
-      config.externals.unshift(
-        function (
-          { context, request }: { context: string; request: string },
-          callback: (err?: Error | null, result?: string | boolean) => void
-        ) {
-          if (unwantedDialects.includes(request)) {
-            // If the request is one of the unwanted dialects, mark it as external
-            return callback(null, `commonjs ${request}`);
-          }
-          // Otherwise, continue with default behavior (Webpack will try to resolve it, or pass to next external)
-          callback();
+      const customExternalHandler = function (
+        { context, request }: { context: string; request: string },
+        callback: (err?: Error | null, result?: string | boolean) => void
+      ) {
+        if (unwantedDialects.includes(request)) {
+          return callback(null, `commonjs ${request}`);
         }
-      );
+        callback();
+      };
+
+      if (Array.isArray(config.externals)) {
+        config.externals.unshift(customExternalHandler);
+      } else if (config.externals) { 
+        // If it exists and is not an array (e.g., a single function/object that's not an array)
+        config.externals = [customExternalHandler, config.externals];
+      } else { 
+        // If it's undefined/null or any other falsy value
+        config.externals = [customExternalHandler];
+      }
     }
     return config;
   },
