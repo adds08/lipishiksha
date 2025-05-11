@@ -39,7 +39,7 @@ function LabelingPageContent() {
   // Using getFontsForGenerator as it provides the necessary LanguageFontInfo
   const { data: availableFontsData, isLoading: isLoadingFonts, error: fontsError } = useQuery<LanguageFontInfo[], Error>({
     queryKey: ['fontsForGenerator'], 
-    queryFn: getFontsForGenerator, // This now uses Prisma
+    queryFn: getFontsForGenerator, // This now uses SQLite
   });
 
   const labelingAvailableLanguages: LabelingAvailableLanguage[] = availableFontsData

@@ -22,7 +22,7 @@ function FontManagementPageContent() {
 
   const { data: savedFontsData, isLoading: isLoadingFonts, error: fontsError, refetch: refetchFonts } = useQuery<SavedFontConfig[], Error, SavedFontDisplayData[]>({
     queryKey: ['savedFonts'],
-    queryFn: getSavedFontConfigurations, // Uses Knex now
+    queryFn: getSavedFontConfigurations, // Uses SQLite now
     select: (data: SavedFontConfig[]) => data.map(font => ({
       id: font.id,
       name: font.name,
@@ -39,14 +39,8 @@ function FontManagementPageContent() {
 
   const saveFontMutation = useMutation({
     mutationFn: async ({ details, fontFile }: { details: ParsedFontDetails, fontFile: File }) => {
-      // Optional: Check for existing font name/language combination if needed.
-      // const existingFont = savedFontsData?.find(f => f.name === details.name && f.assignedLanguage === details.language);
-      // if (existingFont) {
-      //   throw new Error(`A font named "${details.name}" for language "${details.language}" is already saved.`);
-      // }
-      
       const { storagePath, downloadURL } = await uploadFontFile(fontFile);
-      const newFontId = await saveFontConfiguration(details, fontFile, storagePath, downloadURL); // Uses Knex now
+      const newFontId = await saveFontConfiguration(details, fontFile, storagePath, downloadURL); // Uses SQLite now
       return { newFontId, name: details.name, language: details.language };
     },
     onSuccess: (data) => {

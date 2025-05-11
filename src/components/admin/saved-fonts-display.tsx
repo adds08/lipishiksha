@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -249,7 +250,7 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
                              <div>
                                <p className="text-sm font-medium leading-none mb-1">Configuration Data Source:</p>
                                <code className="block text-xs font-mono bg-muted p-2 rounded">
-                                 SQLite Database (via Prisma)
+                                 SQLite Database
                                </code>
                             </div>
                           </div>

@@ -23,7 +23,7 @@ function GeneratorPageContent() {
 
   const { data: availableFontsData, isLoading: isLoadingFonts, error: fontsError } = useQuery<LanguageFontInfo[], Error>({
     queryKey: ['fontsForGenerator'],
-    queryFn: getFontsForGenerator, // This now uses Prisma
+    queryFn: getFontsForGenerator, // This now uses SQLite
   });
 
   useEffect(() => {
