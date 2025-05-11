@@ -21,8 +21,6 @@ const nextConfig: NextConfig = {
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Add unused Knex dialects to externals to prevent Webpack from bundling them.
-      // 'pg' is the used dialect, so it's not included here.
       const unwantedDialects = [
         'better-sqlite3',
         'sqlite3',
@@ -32,25 +30,27 @@ const nextConfig: NextConfig = {
         'tedious', // for mssql
       ];
 
-      // Ensure config.externals is an array and push the unwanted dialects.
-      // The typical structure for config.externals in Next.js allows pushing strings or regexes.
-      if (!config.externals) {
+      // Ensure config.externals is an array to begin with
+      if (!Array.isArray(config.externals)) {
         config.externals = [];
       }
       
-      // It's safer to push a function to handle these specific requests,
-      // or ensure externals is an array before pushing.
-      // Next.js default for externals is an array.
-      // We'll add them as simple strings, which works if they are top-level requires.
-      config.externals = [...config.externals, ...unwantedDialects];
-
-      // A more robust way if other externals are functions or complex objects:
-      // config.externals.push(function({ context, request }, callback) {
-      //   if (unwantedDialects.includes(request)) {
-      //     return callback(null, 'commonjs ' + request);
-      //   }
-      //   callback();
-      // });
+      // Prepend a function to handle unwanted dialects
+      // This allows existing externals (if any, including functions) to be processed
+      // if our function doesn't handle the request.
+      config.externals.unshift(
+        function (
+          { context, request }: { context: string; request: string },
+          callback: (err?: Error | null, result?: string | boolean) => void
+        ) {
+          if (unwantedDialects.includes(request)) {
+            // If the request is one of the unwanted dialects, mark it as external
+            return callback(null, `commonjs ${request}`);
+          }
+          // Otherwise, continue with default behavior (Webpack will try to resolve it, or pass to next external)
+          callback();
+        }
+      );
     }
     return config;
   },
