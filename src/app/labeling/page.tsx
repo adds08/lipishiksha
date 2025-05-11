@@ -36,9 +36,10 @@ function LabelingPageContent() {
 
   const { toast } = useToast();
 
+  // Using getFontsForGenerator as it provides the necessary LanguageFontInfo
   const { data: availableFontsData, isLoading: isLoadingFonts, error: fontsError } = useQuery<LanguageFontInfo[], Error>({
-    queryKey: ['fontsForGenerator'], // Can reuse the same query key if data is identical
-    queryFn: getFontsForGenerator,
+    queryKey: ['fontsForGenerator'], 
+    queryFn: getFontsForGenerator, // This now uses Prisma
   });
 
   const labelingAvailableLanguages: LabelingAvailableLanguage[] = availableFontsData
@@ -46,16 +47,14 @@ function LabelingPageContent() {
     : [];
 
   useEffect(() => {
-    // If labeling params exist and availableFontsData loads, ensure the language in labelingParams is valid.
-    // Or, set a default language if one is not yet set in labelingParams.
     if (labelingParams && availableFontsData && availableFontsData.length > 0) {
       const languageExists = availableFontsData.some(f => f.id === labelingParams.language);
       if (!languageExists) {
         setLabelingParams(prev => prev ? ({ ...prev, language: availableFontsData[0].id }) : null);
       }
     } else if (!labelingParams && availableFontsData && availableFontsData.length > 0 && step === "params") {
-      // If moving to params step and no params yet, initialize with default language
-      // This part might need adjustment based on when labelingParams is typically set
+      // This logic might need adjustment based on actual usage patterns.
+      // For now, it ensures a default language is considered if params are being set up.
     }
   }, [availableFontsData, labelingParams, step]);
 
@@ -88,12 +87,11 @@ function LabelingPageContent() {
         setIsSubmittingAi(false);
         return;
     }
-     if (labelingAvailableLanguages.length === 0) {
+     if (labelingAvailableLanguages.length === 0 && !isLoadingFonts) { // Check !isLoadingFonts
         toast({ title: "Error", description: "No languages available. Please add fonts in Admin.", variant: "destructive" });
         setIsSubmittingAi(false);
         return;
     }
-
 
     const aiInput = {
       practiceSheetDataUri: imageDataUri,
@@ -116,7 +114,10 @@ function LabelingPageContent() {
 
   const handleSaveLabels = (finalLabels: string[]) => {
     console.log("Final labels to save:", finalLabels);
-    toast({ title: "Labels Saved", description: "Your corrected labels have been saved (logged to console)." });
+    // Here, you would typically send finalLabels to a backend to save them,
+    // possibly associated with the image and font configuration.
+    // For now, it's just logged.
+    toast({ title: "Labels Saved (Logged)", description: "Your corrected labels have been logged to the console." });
   };
   
   const renderStepContent = () => {
@@ -212,7 +213,6 @@ function LabelingPageContent() {
                         onClick={() => {
                             if (s === "upload") setStep("upload");
                             if (s === "params" && imageDataUri) setStep("params");
-                            // Clicking "Label" step button is only allowed if params are set and suggestions ready
                             if (s === "label" && labelingParams && suggestedLabels.length > 0) setStep("label");
                         }}
                         disabled={ 

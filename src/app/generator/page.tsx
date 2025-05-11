@@ -11,9 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Printer, Settings, Loader2 } from "lucide-react";
 import { getFontsForGenerator, type LanguageFontInfo } from "@/lib/font-data-service";
 
-// PracticeSheetConfig now only needs language, as other details are derived
 export interface PracticeSheetConfig {
-  language: string; // This will be the ID from LanguageFontInfo (e.g., 'ne', 'en')
+  language: string; 
 }
 
 const queryClient = new QueryClient();
@@ -24,17 +23,15 @@ function GeneratorPageContent() {
 
   const { data: availableFontsData, isLoading: isLoadingFonts, error: fontsError } = useQuery<LanguageFontInfo[], Error>({
     queryKey: ['fontsForGenerator'],
-    queryFn: getFontsForGenerator,
+    queryFn: getFontsForGenerator, // This now uses Prisma
   });
 
-  // Effect to set initial language and selectedFontDetails once fonts are loaded
   useEffect(() => {
     if (availableFontsData && availableFontsData.length > 0 && !config.language) {
       const firstFont = availableFontsData[0];
-      setConfig({ language: firstFont.id }); // firstFont.id is the language code
+      setConfig({ language: firstFont.id });
       setSelectedFontDetails(firstFont);
     } else if (availableFontsData && config.language) {
-      // If language is already set, ensure selectedFontDetails matches
       const currentSelected = availableFontsData.find(f => f.id === config.language);
       setSelectedFontDetails(currentSelected || null);
     }

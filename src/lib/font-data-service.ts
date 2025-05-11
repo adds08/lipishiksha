@@ -1,66 +1,39 @@
 
 'use server';
 
-import fs from 'fs/promises';
-import path from 'path';
+import { PrismaClient } from '@prisma/client';
 import type { ParsedFontDetails } from '@/components/admin/font-upload-form';
-import { saveFontLocally } from '@/lib/file-storage';
+import { saveFontLocally } from '@/lib/file-storage'; // For saving the actual font file
 
-// Define the path to the JSON database file
-const DB_PATH = path.join(process.cwd(), 'data', 'fonts.json');
+const prisma = new PrismaClient();
 
-export interface SavedFontConfig extends Omit<ParsedFontDetails, 'language'> {
-  id: string; // Unique ID for the font config
+// This interface now primarily describes the shape of data returned to components,
+// after potential transformations (like parsing JSON 'characters').
+export interface SavedFontConfig extends Omit<ParsedFontDetails, 'language' | 'characters'> {
+  id: string;
   assignedLanguage: string;
+  characters: string[]; // Ensure this is string[] after parsing
   fileName: string;
-  fileSize: number;
-  storagePath: string; // Local file system path or relative public path
-  downloadURL: string; // Publicly accessible URL (relative to /public)
-  createdAt: string; // ISO 8601 date string
+  fileSize: number; // Ensure this is number after conversion
+  storagePath: string;
+  downloadURL: string;
+  createdAt: Date; // Prisma returns Date objects for DateTime fields
 }
 
-interface FontDatabase {
-  fonts: SavedFontConfig[];
-}
 
 /**
- * Reads the font database from the JSON file.
- * @returns Promise resolving to the FontDatabase object.
- */
-async function readDb(): Promise<FontDatabase> {
-  try {
-    await fs.access(DB_PATH);
-  } catch (error) {
-    // If the file doesn't exist, create it with an empty structure
-    await fs.writeFile(DB_PATH, JSON.stringify({ fonts: [] }, null, 2), 'utf-8');
-  }
-  const jsonData = await fs.readFile(DB_PATH, 'utf-8');
-  return JSON.parse(jsonData) as FontDatabase;
-}
-
-/**
- * Writes the font database to the JSON file.
- * @param dbData The FontDatabase object to write.
- */
-async function writeDb(dbData: FontDatabase): Promise<void> {
-  await fs.writeFile(DB_PATH, JSON.stringify(dbData, null, 2), 'utf-8');
-}
-
-/**
- * Uploads a font file to the local server.
- * For this local JSON setup, it means saving to public/uploads/fonts.
+ * Uploads a font file to the local server (public/uploads/fonts).
+ * This part remains the same as it deals with the physical file.
  * @param file The font file to upload.
  * @returns Promise resolving to the storage path and public URL of the uploaded file.
  */
 export async function uploadFontFile(file: File): Promise<{ storagePath: string; downloadURL: string }> {
   const { filePath, publicUrl } = await saveFontLocally(file);
-  // For local storage, storagePath might be the absolute fs path, 
-  // and downloadURL is the web-accessible path.
   return { storagePath: filePath, downloadURL: publicUrl };
 }
 
 /**
- * Saves font configuration to the JSON database file.
+ * Saves font configuration to the SQLite database via Prisma.
  * @param fontDetails The parsed font details from the form.
  * @param fontFile The original font file (for name and size).
  * @param storagePath The path where the font is stored (local file system path).
@@ -73,42 +46,44 @@ export async function saveFontConfiguration(
   storagePath: string,
   downloadURL: string
 ): Promise<string> {
-  const dbData = await readDb();
-  const newId = `font_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-
-  const newFontConfig: SavedFontConfig = {
-    id: newId,
-    name: fontDetails.name,
-    assignedLanguage: fontDetails.language,
-    characters: fontDetails.characters,
-    fileName: fontFile.name,
-    fileSize: fontFile.size,
-    storagePath,
-    downloadURL,
-    createdAt: new Date().toISOString(),
-  };
-
-  dbData.fonts.push(newFontConfig);
-  dbData.fonts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort by date desc
-  await writeDb(dbData);
+  const newFontConfig = await prisma.fontConfiguration.create({
+    data: {
+      name: fontDetails.name,
+      assignedLanguage: fontDetails.language,
+      characters: JSON.stringify(fontDetails.characters), // Store characters as a JSON string
+      fileName: fontFile.name,
+      fileSize: BigInt(fontFile.size), // Store fileSize as BigInt
+      storagePath,
+      downloadURL,
+      createdAt: new Date(), // Prisma handles ISO string conversion
+    },
+  });
   
-  return newId;
+  return newFontConfig.id;
 }
 
 /**
- * Fetches all saved font configurations from the JSON database file.
+ * Fetches all saved font configurations from the SQLite database.
  * @returns Promise resolving to an array of SavedFontConfig.
  */
 export async function getSavedFontConfigurations(): Promise<SavedFontConfig[]> {
-  const dbData = await readDb();
-  // Ensure sorting by createdAt descending if not already handled by writeDb (it is, but good for consistency)
-  return dbData.fonts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const fontsFromDb = await prisma.fontConfiguration.findMany({
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  return fontsFromDb.map(font => ({
+    ...font,
+    characters: JSON.parse(font.characters as string), // Parse JSON string to string[]
+    fileSize: Number(font.fileSize), // Convert BigInt to number for component use
+  }));
 }
 
 
 export interface LanguageFontInfo {
-  id: string; // language code, typically same as assignedLanguage
-  label: string; // language display name, potentially with font name
+  id: string; 
+  label: string; 
   fontName: string;
   characters: string[];
   downloadURL: string;
@@ -117,23 +92,29 @@ export interface LanguageFontInfo {
 
 /**
  * Fetches a list of unique languages and their associated font details for the generator.
- * It picks the first font encountered for each unique language.
+ * It picks the most recently added font for each unique language.
  * @returns Promise resolving to an array of LanguageFontInfo.
  */
 export async function getFontsForGenerator(): Promise<LanguageFontInfo[]> {
-  const dbData = await readDb();
+  // Fetch all fonts, ordered by assignedLanguage and then by createdAt descending
+  // to easily pick the latest for each language.
+  const allFonts = await prisma.fontConfiguration.findMany({
+    orderBy: [
+      { assignedLanguage: 'asc' },
+      { createdAt: 'desc' },
+    ],
+  });
+
   const languageMap = new Map<string, LanguageFontInfo>();
 
-  // Sort by createdAt to prefer more recently added/updated fonts if multiple exist for a language
-  const sortedFonts = dbData.fonts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  for (const font of sortedFonts) {
-    if (!languageMap.has(font.assignedLanguage)) { 
+  for (const font of allFonts) {
+    // If this language is not yet in the map, add it (it's the most recent due to sorting)
+    if (!languageMap.has(font.assignedLanguage)) {
       languageMap.set(font.assignedLanguage, {
-        id: font.assignedLanguage, // Using language as ID for selection
+        id: font.assignedLanguage, // Using language code as ID for selection
         label: `${font.assignedLanguage} (${font.name})`,
         fontName: font.name,
-        characters: font.characters,
+        characters: JSON.parse(font.characters as string), // Parse JSON string
         downloadURL: font.downloadURL,
         assignedLanguage: font.assignedLanguage,
       });
@@ -142,6 +123,5 @@ export async function getFontsForGenerator(): Promise<LanguageFontInfo[]> {
   return Array.from(languageMap.values());
 }
 
-
-// Renaming from SavedFontConfigServer for consistency with the new local approach
-export type { SavedFontConfig as SavedFontConfigServer } from '@/lib/font-data-service';
+// Alias for type used in components, reflecting the structure after DB retrieval and parsing
+export type { SavedFontConfig as SavedFontConfigServer };

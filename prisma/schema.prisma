@@ -1,0 +1,24 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model FontConfiguration {
+  id               String   @id @default(cuid())
+  name             String
+  assignedLanguage String
+  characters       String // Stored as JSON string representing string[]
+  fileName         String
+  fileSize         BigInt   // Using BigInt for file size
+  storagePath      String   // Local file system path (absolute)
+  downloadURL      String   // Publicly accessible URL (relative to /public or full if external)
+  createdAt        DateTime @default(now())
+
+  @@index([assignedLanguage])
+  @@index([createdAt])
+}

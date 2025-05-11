@@ -24,9 +24,9 @@ export interface SavedFontDisplayData {
   name: string;
   assignedLanguage: string;
   fileName: string;
-  fileSize: number;
+  fileSize: number; // Expecting number after transformation in page.tsx
   characterCount: number;
-  createdAt?: Date;
+  createdAt?: Date; // Expecting Date object after transformation
   characters: string[];
   storagePath: string;
   downloadURL: string;
@@ -44,7 +44,6 @@ function CharacterMapWithDynamicFont({ font }: { font: SavedFontDisplayData }) {
   const [fontStyleTag, setFontStyleTag] = useState<HTMLStyleElement | null>(null);
 
   useEffect(() => {
-    // Cleanup previous font style tag if any
     if (fontStyleTag && fontStyleTag.parentNode) {
       fontStyleTag.parentNode.removeChild(fontStyleTag);
       setFontStyleTag(null);
@@ -52,7 +51,6 @@ function CharacterMapWithDynamicFont({ font }: { font: SavedFontDisplayData }) {
     setDynamicFontFamily(null);
 
     if (font.downloadURL && font.name) {
-      // Create a unique font-family name for this preview instance
       const uniqueFontFamily = `DialogPreview_${font.name.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
       
       let fontFormat = '';
@@ -61,6 +59,7 @@ function CharacterMapWithDynamicFont({ font }: { font: SavedFontDisplayData }) {
 
       if (!fontFormat) {
         console.warn("Could not determine font format for dialog preview from URL:", font.downloadURL);
+        // Proceeding without format, browser might infer or fail.
       }
 
       const fontFaceRule = `
@@ -79,17 +78,14 @@ function CharacterMapWithDynamicFont({ font }: { font: SavedFontDisplayData }) {
     }
 
     return () => {
-      // Cleanup when component unmounts or dependencies change
       if (fontStyleTag && fontStyleTag.parentNode) {
         fontStyleTag.parentNode.removeChild(fontStyleTag);
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [font.downloadURL, font.name]); // Effect runs when these props change (i.e., different dialog opens)
+  }, [font.downloadURL, font.name]);
 
-  const currentFontFamilyToApply = dynamicFontFamily || "var(--font-geist-sans), sans-serif"; // Fallback font
+  const currentFontFamilyToApply = dynamicFontFamily || "var(--font-geist-sans), sans-serif";
   const fontSizeForDisplay = font.assignedLanguage.toLowerCase() === 'ne' || font.assignedLanguage.toLowerCase() === 'nepali' ? '1.15rem' : '1rem';
-
 
   return (
     <div>
@@ -114,10 +110,10 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Saved Font Configurations</CardTitle>
-          <CardDescription>Loading font configurations...</CardDescription>
+          <CardDescription>Loading font configurations from the database...</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Fetching data from the local store.</p>
+          <p className="text-muted-foreground">Fetching data...</p>
         </CardContent>
       </Card>
     );
@@ -142,7 +138,7 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
       <CardHeader>
         <CardTitle>Saved Font Configurations</CardTitle>
         <CardDescription>
-          List of font configurations stored in the local JSON file.
+          List of font configurations stored in the SQLite database.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -192,7 +188,7 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
                             <CharacterMapWithDynamicFont font={font} />
                             
                             <div>
-                               <p className="text-sm font-medium leading-none mb-1">Font File Path (Server Storage):</p>
+                               <p className="text-sm font-medium leading-none mb-1">Font File Server Path:</p>
                                <code className="block text-xs font-mono bg-muted p-2 rounded overflow-x-auto">
                                  {font.storagePath}
                                </code>
@@ -206,7 +202,7 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
                              <div>
                                <p className="text-sm font-medium leading-none mb-1">Configuration Data Source:</p>
                                <code className="block text-xs font-mono bg-muted p-2 rounded">
-                                 data/fonts.json
+                                 SQLite Database (via Prisma)
                                </code>
                             </div>
                           </div>
@@ -228,4 +224,3 @@ export function SavedFontsDisplay({ fonts, isLoading, error }: SavedFontsDisplay
     </Card>
   );
 }
-
