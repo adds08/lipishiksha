@@ -1,171 +1,178 @@
 
-import knexConstructor from 'knex';
-// @ts-ignore
-import knexConfigFromFile from '../../knexfile.js';
+'use server';
+import sqlite3 from 'sqlite3';
 import path from 'path';
 import fs from 'fs';
 
-const environment = process.env.NODE_ENV || 'development';
-const activeKnexConfig = knexConfigFromFile[environment];
+const DB_FILE_NAME = 'lipi_shiksha.db';
+const DB_DIR = path.join(process.cwd(), 'data');
+const DB_PATH = path.join(DB_DIR, DB_FILE_NAME);
 
-if (!activeKnexConfig) {
-  throw new Error(`Knex configuration for environment "${environment}" not found.`);
-}
-console.log(`[DB] Using environment: ${environment}`);
-console.log(`[DB] Knex active configuration: Client: ${activeKnexConfig.client}, Connection Filename: ${activeKnexConfig.connection?.filename}`);
+let db: sqlite3.Database | null = null;
+let dbInitializationPromise: Promise<void> | null = null;
 
-// Ensure data directory exists for SQLite before Knex instance is even created if filename is specified
-if (activeKnexConfig.client === 'sqlite3' && activeKnexConfig.connection.filename && activeKnexConfig.connection.filename !== ':memory:') {
-  const dbFilePath = path.resolve(activeKnexConfig.connection.filename); // Ensure absolute
-  const dataDir = path.dirname(dbFilePath);
-  if (!fs.existsSync(dataDir)) {
-    try {
-      fs.mkdirSync(dataDir, { recursive: true });
-      console.log(`[DB] Created data directory for SQLite: ${dataDir}`);
-    } catch (err) {
-      console.error(`[DB] Error creating data directory ${dataDir}:`, err);
-      // This could be a fatal error depending on permissions
-    }
+function ensureDbDirectoryExists() {
+  if (!fs.existsSync(DB_DIR)) {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+    console.log(`[DB] Created data directory: ${DB_DIR}`);
   }
 }
 
-const knex = knexConstructor(activeKnexConfig);
-
-let dbInitializationState: 'pending' | 'done' | 'failed' = 'pending';
-let dbInitializationError: Error | null = null;
-
-const initializeDatabasePromise = (async () => {
-  if (process.env.KNEX_CLI_CONTEXT === 'true') {
-    console.log('[DB InitializePromise] Knex CLI context detected, skipping auto-initialization in src/lib/db.ts.');
-    // For CLI context, we assume migrations are handled by the CLI command itself.
-    // Setting to 'done' might be too optimistic if the CLI command isn't 'migrate'.
-    // However, guardedKnex is usually not used by CLI.
-    dbInitializationState = 'done'; 
-    return;
-  }
-
-  if (dbInitializationState !== 'pending') {
-    console.log(`[DB InitializePromise] Initialization already attempted (state: ${dbInitializationState}). Skipping.`);
-    return;
-  }
-
-  console.log('[DB InitializePromise] Attempting database initialization and migration...');
-  try {
-    // For SQLite, Knex typically creates the file if it doesn't exist when connection is made.
-    // The directory check above should suffice.
-    
-    console.log('[DB InitializePromise] Running knex.migrate.latest()...');
-    // Log migration config being used by this knex instance
-    // console.log('[DB InitializePromise] Knex migration config:', knex.migrate.config);
-    const migrationResult = await knex.migrate.latest();
-    // migrationResult is an array: [batchNo, log[]]
-    // log[] contains names of migrations that ran.
-    console.log(`[DB InitializePromise] knex.migrate.latest() completed. Batch: ${migrationResult[0]}. Migrations run: ${migrationResult[1].length > 0 ? migrationResult[1].join(', ') : 'None'}`);
-    
-    console.log('[DB InitializePromise] Verifying table "FontConfiguration" existence post-migration...');
-    const tableExists = await knex.schema.hasTable('FontConfiguration');
-    if (!tableExists) {
-        console.error('[DB InitializePromise] CRITICAL: FontConfiguration table still does not exist after migrations.');
-        throw new Error('FontConfiguration table missing after migration attempt. Check migration logs and DB file.');
-    } else {
-        console.log('[DB InitializePromise] FontConfiguration table confirmed to exist.');
+async function initializeDatabase(): Promise<void> {
+  ensureDbDirectoryExists();
+  return new Promise((resolve, reject) => {
+    if (db) {
+      resolve();
+      return;
     }
+    console.log(`[DB] Initializing SQLite database at ${DB_PATH}...`);
+    const newDb = new sqlite3.Database(DB_PATH, (err) => {
+      if (err) {
+        console.error('[DB] Error opening database:', err.message);
+        reject(err);
+        return;
+      }
+      console.log('[DB] SQLite database opened successfully.');
+      db = newDb;
+      createTables()
+        .then(() => {
+            console.log('[DB] Database schema initialized.');
+            resolve();
+        })
+        .catch(tableErr => {
+            console.error('[DB] Error creating tables:', tableErr.message);
+            reject(tableErr);
+        });
+    });
+  });
+}
 
-    dbInitializationState = 'done';
-    console.log('[DB InitializePromise] Database initialization successful.');
-  } catch (error) {
-    dbInitializationState = 'failed';
-    dbInitializationError = error instanceof Error ? error : new Error(String(error));
-    console.error('[DB InitializePromise] Critical error initializing database with Knex:', dbInitializationError.message);
-    if ((error as any).stack) {
-        console.error((error as any).stack);
-    }
-    // The proxy will throw this error on subsequent operations
-  }
-})();
-
-const guardedKnex = new Proxy(knex, {
-  get(target, propKey, receiver) {
-    const originalValue = Reflect.get(target, propKey, receiver);
-    if (typeof originalValue === 'function') {
-      return async (...args: any[]) => {
-        // console.log(`[DB PROXY] Operation: ${String(propKey)}. Current dbInitializationState: ${dbInitializationState}`);
-        await initializeDatabasePromise; // Ensure initialization attempt has finished
-        // console.log(`[DB PROXY] Operation: ${String(propKey)}. After await, dbInitializationState: ${dbInitializationState}`);
-
-        if (dbInitializationState === 'failed') {
-          console.error(`[DB PROXY] Attempted to use DB when initialization failed for operation: ${String(propKey)}.`);
-          throw new Error(`[DB] Database not initialized or initialization failed. Original error: ${dbInitializationError?.message || 'Unknown DB init error'}`);
+async function createTables(): Promise<void> {
+    if (!db) throw new Error("Database not initialized for createTables.");
+    const createTableSql = `
+      CREATE TABLE IF NOT EXISTS FontConfiguration (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        assignedLanguage TEXT NOT NULL,
+        characters TEXT NOT NULL,
+        fileName TEXT NOT NULL,
+        fileSize INTEGER NOT NULL,
+        storagePath TEXT NOT NULL,
+        downloadURL TEXT NOT NULL,
+        createdAt TEXT NOT NULL
+      );
+    `;
+    return new Promise((resolve, reject) => {
+        db!.exec(createTableSql, (err) => {
+        if (err) {
+          console.error('[DB] Error creating FontConfiguration table:', err.message);
+          reject(err);
+        } else {
+          console.log('[DB] FontConfiguration table checked/created successfully.');
+          // You can add index creation here if needed, e.g.:
+          // db!.exec("CREATE INDEX IF NOT EXISTS idx_lang ON FontConfiguration(assignedLanguage);", (idxErr) => { ... });
+          resolve();
         }
-        if (dbInitializationState !== 'done') {
-           console.warn(`[DB PROXY] Database initialization state is unexpectedly "${dbInitializationState}" for operation: ${String(propKey)}. This might indicate an issue.`);
-          throw new Error(`[DB] Database initialization is not 'done' (state: ${dbInitializationState}). Investigate initialization logs.`);
-        }
-        // console.log(`[DB PROXY] Operation: ${String(propKey)}. Proceeding with call.`);
-        return (originalValue as Function).apply(target, args);
-      };
-    }
-    return originalValue;
+      });
+    });
+}
+
+export async function getDb(): Promise<sqlite3.Database> {
+  if (!dbInitializationPromise) {
+    dbInitializationPromise = initializeDatabase();
   }
+  await dbInitializationPromise;
+  if (!db) {
+    throw new Error('Database initialization failed or did not complete.');
+  }
+  return db;
+}
+
+// Helper to run a query that doesn't expect rows (INSERT, UPDATE, DELETE)
+export async function run(sql: string, params: any[] = []): Promise<{ lastID?: number, changes?: number }> {
+  const dbInstance = await getDb();
+  return new Promise((resolve, reject) => {
+    dbInstance.run(sql, params, function (err) { // Use function to get `this` context for lastID, changes
+      if (err) {
+        console.error(`[DB] Error running SQL: ${sql}`, params, err.message);
+        reject(err);
+      } else {
+        resolve({ lastID: this.lastID, changes: this.changes });
+      }
+    });
+  });
+}
+
+// Helper to get a single row
+export async function get<T>(sql: string, params: any[] = []): Promise<T | undefined> {
+  const dbInstance = await getDb();
+  return new Promise((resolve, reject) => {
+    dbInstance.get(sql, params, (err, row: T) => {
+      if (err) {
+         console.error(`[DB] Error getting SQL: ${sql}`, params, err.message);
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    });
+  });
+}
+
+// Helper to get all rows
+export async function all<T>(sql: string, params: any[] = []): Promise<T[]> {
+  const dbInstance = await getDb();
+  return new Promise((resolve, reject) => {
+    dbInstance.all(sql, params, (err, rows: T[]) => {
+      if (err) {
+        console.error(`[DB] Error getting all SQL: ${sql}`, params, err.message);
+        reject(err);
+      } else {
+        resolve(rows);
+      }
+    });
+  });
+}
+
+
+// Ensure tables are created on server start (or first DB access)
+// This is important if running directly (e.g. `next start`)
+// For `db:init` script, initializeDbWithTables will be called explicitly.
+getDb().catch(err => {
+    console.error("[DB] Failed to auto-initialize database on module load:", err.message);
 });
+
+// Export a function for explicit initialization, e.g., for scripts
+export async function initializeDbWithTables(): Promise<void> {
+    console.log('[DB Script] Explicitly initializing database and tables...');
+    if (!dbInitializationPromise) {
+        dbInitializationPromise = initializeDatabase();
+    }
+    await dbInitializationPromise;
+    console.log('[DB Script] Database and tables initialization process completed.');
+}
 
 process.on('SIGINT', async () => {
-  if (knex && typeof knex.destroy === 'function') { 
-    try {
-      await knex.destroy();
-      console.log('[DB] Knex connection pool closed gracefully on SIGINT.');
-    } catch (error) {
-      console.error('[DB] Error closing Knex connection pool on SIGINT:', error);
-    }
+  if (db) {
+    console.log('[DB] Closing SQLite database connection on SIGINT...');
+    db.close((err) => {
+      if (err) console.error('[DB] Error closing database on SIGINT:', err.message);
+      else console.log('[DB] Database closed successfully.');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
   }
-  process.exit(0);
 });
+
 process.on('SIGTERM', async () => {
-  if (knex && typeof knex.destroy === 'function') {
-    try {
-      await knex.destroy();
-      console.log('[DB] Knex connection pool closed gracefully on SIGTERM.');
-    } catch (error) {
-      console.error('[DB] Error closing Knex connection pool on SIGTERM:', error);
-    }
+  if (db) {
+    console.log('[DB] Closing SQLite database connection on SIGTERM...');
+    db.close((err) => {
+      if (err) console.error('[DB] Error closing database on SIGTERM:', err.message);
+      else console.log('[DB] Database closed successfully.');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
   }
-  process.exit(0);
 });
-
-
-export default guardedKnex;
-
-export async function runDbMigrations() {
-  // This function is for explicit calls like from `db:init` script.
-  // It should use its own knex instance to avoid conflicts with the app's guardedKnex state.
-  console.log('[DB Script - runDbMigrations] Explicitly running Knex migrations...');
-  const migrationKnexConfig = knexConfigFromFile[environment];
-  if (!migrationKnexConfig) {
-    throw new Error(`Knex configuration for environment "${environment}" not found for migration script.`);
-  }
-  console.log(`[DB Script - runDbMigrations] Using config for env: ${environment}, client: ${migrationKnexConfig.client}, file: ${migrationKnexConfig.connection?.filename}`);
-  
-  const migrationKnex = knexConstructor(migrationKnexConfig);
-  try {
-    // Ensure directory for SQLite exists for the migration script too
-    if (migrationKnexConfig.client === 'sqlite3' && migrationKnexConfig.connection.filename && migrationKnexConfig.connection.filename !== ':memory:') {
-        const dbFilePath = path.resolve(migrationKnexConfig.connection.filename);
-        const dataDir = path.dirname(dbFilePath);
-        if (!fs.existsSync(dataDir)) {
-            fs.mkdirSync(dataDir, { recursive: true });
-            console.log(`[DB Script - runDbMigrations] Created data directory for SQLite: ${dataDir}`);
-        }
-    }
-
-    const result = await migrationKnex.migrate.latest();
-    console.log(`[DB Script - runDbMigrations] Knex migrations completed. Batch: ${result[0]}. Migrations run: ${result[1].length > 0 ? result[1].join(', ') : 'None'}`);
-  } catch(error) {
-    console.error('[DB Script - runDbMigrations] Error running migrations explicitly:', error);
-    throw error;
-  } finally {
-    if (migrationKnex && typeof migrationKnex.destroy === 'function') {
-      await migrationKnex.destroy();
-      console.log('[DB Script - runDbMigrations] Migration Knex instance destroyed.');
-    }
-  }
-}
