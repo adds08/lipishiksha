@@ -3,7 +3,7 @@
 
 import type { ParsedFontDetails } from '@/components/admin/font-upload-form';
 import { saveFontLocally } from '@/lib/file-storage';
-import { query as executeSelectQuery, execute as executeModifyQuery } from '@/lib/db'; // Renamed for clarity
+import knex from '@/lib/db'; // Import Knex instance
 import { v4 as uuidv4 } from 'uuid';
 
 // This interface describes data primarily for component consumption.
@@ -19,13 +19,14 @@ export interface SavedFontConfig extends Omit<ParsedFontDetails, 'language' | 'c
 }
 
 // This type represents the raw row from the database.
+// Knex will return objects matching this structure.
 interface FontConfigRow {
   id: string;
   name: string;
   assignedLanguage: string; 
   characters: string; // JSON string from DB
   fileName: string; 
-  fileSize: number; // SQLite stores as INTEGER, directly maps to number
+  fileSize: number; 
   storagePath: string; 
   downloadURL: string; 
   createdAt: string; // Stored as ISO8601 TEXT string
@@ -45,34 +46,36 @@ export async function saveFontConfiguration(
 ): Promise<string> {
   const newFontId = uuidv4();
   
-  const sql = `
-    INSERT INTO "FontConfiguration" (id, name, "assignedLanguage", characters, "fileName", "fileSize", "storagePath", "downloadURL", "createdAt")
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-  `;
-  // SQLite uses $1, $2 placeholders for parameters in the sqlite3 Node.js library
-  const params = [
-    newFontId,
-    fontDetails.name,
-    fontDetails.language,
-    JSON.stringify(fontDetails.characters),
-    fontFile.name,
-    fontFile.size,
-    storagePath,
-    downloadURL,
-    new Date().toISOString(), // Store as ISO string
-  ];
+  const fontConfigToInsert = {
+    id: newFontId,
+    name: fontDetails.name,
+    assignedLanguage: fontDetails.language,
+    characters: JSON.stringify(fontDetails.characters),
+    fileName: fontFile.name,
+    fileSize: fontFile.size,
+    storagePath: storagePath,
+    downloadURL: downloadURL,
+    createdAt: new Date().toISOString(),
+  };
   
-  await executeModifyQuery(sql, params);
+  await knex('FontConfiguration').insert(fontConfigToInsert);
   return newFontId;
 }
 
 export async function getSavedFontConfigurations(): Promise<SavedFontConfig[]> {
-  const sql = `
-    SELECT id, name, "assignedLanguage", characters, "fileName", "fileSize", "storagePath", "downloadURL", "createdAt"
-    FROM "FontConfiguration"
-    ORDER BY "createdAt" DESC
-  `;
-  const fontsFromDb = await executeSelectQuery<FontConfigRow>(sql);
+  const fontsFromDb: FontConfigRow[] = await knex('FontConfiguration')
+    .select(
+      'id', 
+      'name', 
+      'assignedLanguage', 
+      'characters', 
+      'fileName', 
+      'fileSize', 
+      'storagePath', 
+      'downloadURL', 
+      'createdAt'
+    )
+    .orderBy('createdAt', 'desc');
 
   return fontsFromDb.map(font => ({
     id: font.id,
@@ -80,10 +83,10 @@ export async function getSavedFontConfigurations(): Promise<SavedFontConfig[]> {
     assignedLanguage: font.assignedLanguage,
     characters: JSON.parse(font.characters || '[]'), 
     fileName: font.fileName,
-    fileSize: font.fileSize, // Directly a number from SQLite
+    fileSize: font.fileSize,
     storagePath: font.storagePath,
     downloadURL: font.downloadURL,
-    createdAt: new Date(font.createdAt), // Parse ISO string back to Date
+    createdAt: new Date(font.createdAt), 
   }));
 }
 
@@ -97,22 +100,31 @@ export interface LanguageFontInfo {
 }
 
 export async function getFontsForGenerator(): Promise<LanguageFontInfo[]> {
-  // SQLite equivalent for selecting the latest font for each language.
-  // This query selects rows where createdAt is the maximum for that assignedLanguage.
-  const sql = `
-    SELECT fc.id, fc.name, fc."assignedLanguage", fc.characters, fc."fileName", fc."fileSize", fc."storagePath", fc."downloadURL", fc."createdAt"
-    FROM "FontConfiguration" fc
-    INNER JOIN (
-        SELECT "assignedLanguage", MAX("createdAt") as max_created_at
-        FROM "FontConfiguration"
-        GROUP BY "assignedLanguage"
-    ) as latest_fonts
-    ON fc."assignedLanguage" = latest_fonts."assignedLanguage" AND fc."createdAt" = latest_fonts.max_created_at
-    ORDER BY fc."assignedLanguage" ASC;
-  `;
-  
-  const fontsFromDb = await executeSelectQuery<FontConfigRow>(sql);
+  // Using Knex to build the subquery for latest fonts per language
+  const latestFontsSubquery = knex('FontConfiguration')
+    .select('assignedLanguage')
+    .max('createdAt as max_created_at')
+    .groupBy('assignedLanguage')
+    .as('latest_fonts');
 
+  const fontsFromDb: FontConfigRow[] = await knex('FontConfiguration as fc')
+    .join(latestFontsSubquery, function() {
+      this.on('fc.assignedLanguage', '=', 'latest_fonts.assignedLanguage')
+          .andOn('fc.createdAt', '=', 'latest_fonts.max_created_at');
+    })
+    .select(
+      'fc.id', 
+      'fc.name', 
+      'fc.assignedLanguage', 
+      'fc.characters', 
+      'fc.fileName', 
+      'fc.fileSize', 
+      'fc.storagePath', 
+      'fc.downloadURL', 
+      'fc.createdAt'
+    )
+    .orderBy('fc.assignedLanguage', 'asc');
+  
   return fontsFromDb.map(font => ({
     id: font.id, 
     label: `${font.assignedLanguage} (${font.name})`,
