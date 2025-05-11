@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -105,21 +104,20 @@ body {
   @media print {
     @page {
       size: A4 portrait;
-      margin-top: 0mm; /* Removed top margin */
-      margin-right: 10mm;
-      margin-bottom: 10mm;
-      margin-left: 10mm;
+      margin: 10mm; /* Symmetrical margins for left, right, bottom */
+      margin-top: 0mm; /* Explicitly no top margin for the page box */
     }
 
-    body {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      background-color: white !important;
-      color: black !important;
-      font-size: 10pt !important;
+    html, body {
       margin: 0 !important;
       padding: 0 !important;
+      background-color: white !important; /* Ensure html also has white background */
+      color: black !important;
+      font-size: 10pt !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
+
     body * {
       visibility: hidden;
       transform: none !important;
@@ -144,8 +142,8 @@ body {
     .print-page-container {
       visibility: visible;
       width: 100%;
-      height: auto; /* Let content define height */
-      margin: 0 !important; /* Container takes full available space within @page margins */
+      height: auto; 
+      margin: 0 !important; 
       padding: 0 !important;
       page-break-after: always;
       background-color: white !important;
@@ -162,8 +160,8 @@ body {
       align-items: flex-start !important;
       width: 100%;
       box-sizing: border-box;
-      margin: 0 0 2mm 0 !important; /* Reduced bottom margin to control space before grid */
-      padding: 0 !important; /* Removed padding, control spacing with margin */
+      margin: 0 0 2mm 0 !important; 
+      padding: 0 !important; 
     }
     .print-page-header {
       text-align: left !important;
@@ -172,7 +170,7 @@ body {
     }
     .print-page-header h2, .print-page-header p {
         margin-top: 0 !important;
-        margin-bottom: 0.2em !important; /* Small space between title and subtitle */
+        margin-bottom: 0.2em !important; 
         visibility: visible !important;
     }
     .print-page-header h2 {
@@ -189,11 +187,11 @@ body {
       visibility: visible !important;
     }
     .print-page-qr .qr-code-canvas {
-      width: 60px !important; /* Fixed size for QR */
-      height: 60px !important; /* Fixed size for QR */
+      width: 60px !important; 
+      height: 60px !important; 
       visibility: visible !important;
     }
-    .print-page-qr .qr-code-canvas canvas { /* Target the actual canvas */
+    .print-page-qr .qr-code-canvas canvas { 
       width: 100% !important;
       height: 100% !important;
       visibility: visible !important;
@@ -211,14 +209,18 @@ body {
       overflow: visible !important;
       border: none !important;
       background-color: transparent !important;
+      margin: 0 !important; /* Added margin reset */
+      padding: 0 !important; /* Added padding reset */
     }
-     .printable-area .h-\[60vh\], .printable-area .md\:h-\[70vh\] { /* Tailwind height classes */
+     .printable-area .h-\[60vh\], .printable-area .md\:h-\[70vh\] { 
         height: auto !important;
     }
      .printable-area div[data-radix-scroll-area-viewport] {
         height: auto !important;
         overflow: visible !important;
         background-color: transparent !important;
+        margin: 0 !important; /* Added margin reset */
+        padding: 0 !important; /* Added padding reset */
      }
 
     .printable-grid {
@@ -226,9 +228,9 @@ body {
       background-color: transparent !important;
       padding: 0 !important;
       border: 1px solid #333 !important;
-      gap: 0 !important; /* No gap between cells, border acts as separator */
+      gap: 0 !important; 
       width: 100% !important;
-      margin-top: 0 !important; /* Grid starts immediately after header */
+      margin-top: 0 !important; 
       box-sizing: border-box;
     }
     .printable-grid-cell {
@@ -239,27 +241,27 @@ body {
       flex-direction: column !important;
       align-items: flex-start !important;
       justify-content: flex-start !important;
-      padding: 2mm 2.5mm !important; /* Padding inside cell */
-      min-height: 20mm; /* Minimum height for cell */
+      padding: 2mm 2.5mm !important; 
+      min-height: 20mm; 
       box-sizing: border-box;
     }
     .printable-grid-cell .reference-char {
       color: #000 !important;
-      font-size: 16pt !important; /* Larger reference character */
+      font-size: 16pt !important; 
       font-weight: 600 !important;
       line-height: 1 !important;
-      margin-bottom: 3mm !important; /* Space between ref char and writing area */
+      margin-bottom: 3mm !important; 
     }
 
     .printable-grid-cell .writing-area-dotted {
       width: 100% !important;
-      flex-grow: 1 !important; /* Takes remaining space in cell */
-      border: 1px dotted #aaa !important; /* Dotted box */
+      flex-grow: 1 !important; 
+      border: 1px dotted #aaa !important; 
       background-color: transparent !important;
       margin-top: 0 !important;
       visibility: visible !important;
       display: block !important;
-      min-height: 12mm; /* Minimum height for writing area */
+      min-height: 12mm; 
     }
 
     /* Hide scrollbars for print */
@@ -270,4 +272,3 @@ body {
     }
   }
 }
-
